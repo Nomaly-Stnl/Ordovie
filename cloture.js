@@ -41,6 +41,7 @@ function startCloture() {
   draft.positions.forEach((p) => { origLens[p.id] = { a: (p.achats || []).length, v: (p.ventes || []).length }; });
   // Ordre : le quotidien d'abord (revenus, comptes, charges), l'investissement ensuite.
   const steps = ["month", "revenus", "comptes", "fixes", "variables", "objectifs", "dettes", "physique", "etf", "crypto", "projets", "recap"];
+  if (typeof syncLiens === "function") syncLiens(draft.budget); // primes des contrats liés à jour
   wz = { month: previousCalendarMonth(), draft, i: 0, steps, origLens, ui: {} };
   go("cloture");
 }
@@ -209,7 +210,7 @@ function pageDettes() {
   return `${cards || '<div class="card"><p class="muted">Aucune dette. Patrimoine net = actifs.</p></div>'}${adder}`;
 }
 function budgetLines(key) {
-  return (wz.draft.budget[key] || []).map((r, i) => `<div class="line-item"><div class="li-head"><span>${esc(r.nom)}</span>
+  return (wz.draft.budget[key] || []).map((r, i) => key === "fixes" && r.contrats && r.contrats.length && typeof ligneLieeHtml === "function" ? ligneLieeHtml(r, i) : `<div class="line-item"><div class="li-head"><span>${esc(r.nom)}</span>
       <button class="link-btn" data-rm="budget.${key}.${i}" data-rmname="${esc(r.nom)}">Retirer</button></div>
     <input type="text" inputmode="decimal" class="mid-input" data-wz="budget.${key}.${i}.montant" value="${esc(r.montant)}"></div>`).join("") || '<p class="muted small">Aucune ligne.</p>';
 }
@@ -225,7 +226,7 @@ function pageRevenus() {
     ${budgetAdder("revenus", "Nouveau revenu")}`;
 }
 function pageFixes() {
-  return `<div class="card">${budgetLines("fixes")}
+  return `${typeof liensHtml === "function" ? liensHtml() : ""}<div class="card">${budgetLines("fixes")}
     <p class="muted small">Loyer, assurances, impôts… Inchangé ? « Suivant ». Total <strong id="lv-fix"></strong></p></div>
     ${budgetAdder("fixes", "Nouvelle charge fixe")}`;
 }

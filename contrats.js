@@ -171,7 +171,7 @@ $("#screen").addEventListener("click", (e) => {
   if (t.dataset.contrat !== undefined) { openContrat(Number(t.dataset.contrat)); return; }
   if (t.id === "btn-del-contrat" && confirm("Supprimer ce contrat et ses documents ?")) {
     (admin.contrats[editIdx].docs || []).forEach((d) => d.files.forEach((fid) => { if (typeof delFile === "function") delFile(fid).catch(() => {}); }));
-    admin.contrats.splice(editIdx, 1); saveAdmin(); draftC = null; go("contrats");
+    admin.contrats.splice(editIdx, 1); saveAdmin(); if (typeof syncLiensFinances === "function") syncLiensFinances(); draftC = null; go("contrats");
   }
 });
 $("#bottombar").addEventListener("click", (e) => {
@@ -189,7 +189,7 @@ $("#bottombar").addEventListener("click", (e) => {
     if (!String(draftC.fournisseur || "").trim()) { alert("Indique l'assureur ou le fournisseur."); return; }
     delete draftC._new; delete draftC.aiSrc; delete draftC.aiNote;
     if (editIdx === -1) admin.contrats.push(draftC); else admin.contrats[editIdx] = draftC;
-    saveAdmin(); draftC = null; go("contrats");
+    saveAdmin(); if (typeof syncLiensFinances === "function") syncLiensFinances(); draftC = null; go("contrats");
   }
 });
 

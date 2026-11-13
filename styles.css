@@ -370,3 +370,13 @@ img{max-width:100%;}
 .src.deduit{background:rgba(212,180,131,.16);color:var(--gold);}
 .spinner{width:26px;height:26px;border:2.5px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:10px auto 4px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* 0.33.0 — charges fixes liées aux contrats */
+.lien-card{border-color:var(--gold);}
+.lien-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.lien-row:last-of-type{border-bottom:none;}
+.lien-row strong{display:block;font-size:14.5px;}
+.lien-row .btn{flex:none;max-width:55%;white-space:normal;text-align:center;}
+.linked-val{display:flex;flex-direction:column;gap:2px;padding:6px 0 2px;}
+.linked-val strong{font-size:17px;font-variant-numeric:tabular-nums;}
+.linked-val .r-sub{display:flex;align-items:center;gap:4px;}
