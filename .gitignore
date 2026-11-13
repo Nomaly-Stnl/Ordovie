@@ -1,0 +1,15 @@
+# Ordovie — rien de personnel ne doit jamais être publié.
+# Exports et sauvegardes de données
+*.json
+*.ordovie
+*.bak
+*.zip
+sauvegardes/
+donnees/
+data/
+# Exceptions : fichiers de l'application
+!manifest.json
+# Système
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr-CH">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#12161f">
+<title>Ordovie</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="btn-home" aria-label="Accueil">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+    </button>
+    <div class="title" id="screen-title">Ordovie</div>
+    <button class="icon-btn" id="btn-settings" aria-label="Paramètres">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <main id="screen"></main>
+
+  <nav class="bottombar" id="bottombar" hidden></nav>
+
+  <div class="update-banner" id="update-banner" hidden>
+    Nouvelle version disponible — <button id="btn-update">Actualiser</button>
+  </div>
+
+  <script src="finance-core.js"></script>
+  <script src="tickers.js"></script>
+  <script src="app.js"></script>
+  <script src="cloture.js"></script>
+  <script src="gerer.js"></script>
+  <script src="objectifs.js"></script>
+  <script src="historique.js"></script>
+  <script src="contrats.js"></script>
+  <script src="documents.js"></script>
+  <script src="assistant.js"></script>
+  <script src="analyses.js"></script>
+  <script src="portefeuille.js"></script>
+  <script src="explorer.js"></script>
+  <script src="coffre.js"></script>
+  <script src="impots.js"></script>
+  <script src="rappels.js"></script>
+  <script src="astuces.js"></script>
+  <script src="security.js"></script>
+  <script src="demo-data.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>
