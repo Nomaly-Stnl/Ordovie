@@ -90,8 +90,26 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, de cette forme
  "exclusions": ["..."],
  "sinistre": {"telephone": "...", "delaiDeclaration": "...", "demarche": "..."},
  "articles": [{"ref": "numéro de l'article", "titre": "...", "texte": "texte intégral, mot pour mot"}],
- "remarques": "pages illisibles, informations douteuses, etc."
+ "remarques": "pages illisibles, informations douteuses, etc.",
+ "categorie": "UNE des catégories de la liste ci-dessous",
+ "tacite": true si le contrat se renouvelle automatiquement, false s'il prend fin seul, null si inconnu,
+ "deduit": {"echeance": "AAAA-MM-JJ ou null", "delaiResiliationMois": nombre ou null, "tacite": true/false/null, "explication": "une phrase"}
 }`;
+// Consignes ajoutées à l'envoi (date du jour, catégories, règles suisses usuelles pour compléter ce que la police ne dit pas).
+function transcribePrompt() {
+  const today = new Date().toISOString().slice(0, 10);
+  return TRANSCRIBE_PROMPT + `
+
+Date du jour : ${today}.
+Catégories possibles : ${CONTRAT_TYPES.map(([t]) => t).join(" | ")}.
+Les champs transcrits (debut, echeance, delaiResiliationMois…) ne contiennent QUE ce qui est écrit sur le document.
+Si l'échéance, le délai de résiliation ou le renouvellement n'y figurent pas, remplis "deduit" avec la règle suisse usuelle
+pour ce type de contrat, et explique-la en une phrase. Exemples :
+- Assurance maladie de base (LAMal) : échéance au 31 décembre de l'année en cours, lettre reçue au plus tard le dernier jour ouvrable de novembre (délai 1 mois), renouvellement tacite.
+- Complémentaires (LCA), ménage/RC, véhicule, protection juridique : échéance et délai selon les conditions générales ; à défaut, échéance annuelle à la date anniversaire, délai 3 mois, renouvellement tacite.
+- Bail d'habitation : délai légal de 3 mois pour l'échéance contractuelle ou le terme usuel local.
+L'échéance déduite est toujours la PROCHAINE échéance après la date du jour. Si tu ne peux rien déduire de fiable, mets null.`;
+}
 
 function extractJSON(text) {
   const a = text.indexOf("{"), b = text.lastIndexOf("}");
@@ -109,16 +127,71 @@ async function transcribeDoc(doc) {
       : { type: "image", source: { type: "base64", media_type: f.type || "image/jpeg", data } });
   }
   if (!blocks.length) throw new Error("Aucune page à transcrire");
-  blocks.push({ type: "text", text: TRANSCRIBE_PROMPT });
+  blocks.push({ type: "text", text: transcribePrompt() });
   const r = await callClaude({ max_tokens: 16000, messages: [{ role: "user", content: blocks }] });
   const json = extractJSON(r.text);
   return { json, truncated: r.stop === "max_tokens", usage: r.usage };
 }
 
+/* ---------- nouveau contrat à partir de la police : l'IA remplit la fiche ---------- */
+// Retourne { champ: "lu" | "déduit" } pour signaler dans le formulaire l'origine de chaque valeur.
+function fillFromTranscription(c, t) {
+  const src = {}, isoOk = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || ""), dd = t.deduit || {};
+  const set = (k, v, how) => { if (v === null || v === undefined || v === "") return; c[k] = v; src[k] = how; };
+  if (CONTRAT_TYPES.some(([n]) => n === t.categorie)) set("type", t.categorie, "lu");
+  set("fournisseur", t.fournisseur, "lu");
+  set("numero", t.numero, "lu");
+  if (t.prime && t.prime.montant != null && !isNaN(Number(t.prime.montant))) set("prime", Number(t.prime.montant), "lu");
+  if (t.prime && PERIODE_OK.includes(t.prime.periode)) set("periode", t.prime.periode, "lu");
+  if (isoOk(t.debut)) set("debut", t.debut, "lu");
+  if (isoOk(t.echeance)) set("echeance", t.echeance, "lu"); else if (isoOk(dd.echeance)) set("echeance", dd.echeance, "déduit");
+  if (t.delaiResiliationMois != null) set("delaiMois", Number(t.delaiResiliationMois), "lu"); else if (dd.delaiResiliationMois != null) set("delaiMois", Number(dd.delaiResiliationMois), "déduit");
+  if (typeof t.tacite === "boolean") set("tacite", t.tacite, "lu"); else if (typeof dd.tacite === "boolean") set("tacite", dd.tacite, "déduit");
+  c.aiSrc = src; c.aiNote = dd.explication || "";
+  return src;
+}
+let newBusy = false;
+async function importNewContract(files) {
+  // Le contrat est créé tout de suite (marqué _new) pour que ses pages soient rangées ; « Annuler » le retire.
+  const doc = { id: "doc" + Date.now().toString(36), nom: "Police", files: [] };
+  for (const f of files) {
+    const isPdf = f.type === "application/pdf";
+    const blob = isPdf ? f : await compressImage(f);
+    const id = doc.id + "-" + doc.files.length;
+    await putFile({ id, type: isPdf ? "application/pdf" : (blob.type || "image/jpeg"), name: f.name, blob });
+    doc.files.push(id);
+  }
+  draftC.docs = [doc]; draftC._new = true;
+  admin.contrats.push(JSON.parse(JSON.stringify(draftC))); editIdx = admin.contrats.length - 1; saveAdmin();
+  newBusy = true; renderContratEdit();
+  try {
+    const r = await transcribeDoc(doc);
+    doc.transcription = r.json; doc.truncated = r.truncated; doc.transcribedAt = new Date().toISOString(); doc.model = aiModel();
+    if (r.json.titre) doc.nom = r.json.titre;
+    fillFromTranscription(draftC, r.json);
+    persistDocs();
+  } catch (err) { alert("Lecture impossible : " + err.message + "\nLes pages sont gardées : complète la fiche à la main."); }
+  newBusy = false; if (current === "contrat-edit") renderContratEdit();
+}
+function newImportHtml() {
+  if (editIdx !== -1 && !(draftC && draftC._new)) return "";
+  if (newBusy) return `<div class="card ai-card"><div class="c-title">Lecture de la police…</div><p class="muted small">L'IA lit le document et remplit la fiche (jusqu'à une minute).</p><div class="spinner"></div></div>`;
+  if (draftC && draftC.aiSrc) return `<div class="card ai-card"><div class="c-title">${ic("check")}Fiche pré-remplie</div>
+      <p class="muted small">Vérifie les champs marqués <span class="src lu">lu</span> (sur la police) et <span class="src deduit">déduit</span> (règle usuelle)${draftC.aiNote ? " : " + esc(draftC.aiNote.replace(/\.\s*$/, "")) : ""}. Puis « Enregistrer ».</p></div>`;
+  if (editIdx !== -1) return "";
+  return aiReady()
+    ? `<div class="card ai-card"><div class="c-title">Partir de ta police</div>
+        <p class="muted small">Prends-la en photo (toutes les pages) ou choisis le PDF. L'IA remplit la fiche et la police est rangée dans tes documents. Coût : quelques centimes.</p>
+        <label class="btn primary full file-btn">${ic("doc")}Importer la police<input type="file" id="new-doc-input" accept="image/*,application/pdf" multiple hidden></label>
+        <p class="muted small" style="text-align:center;margin-bottom:0;">ou remplis la fiche ci-dessous à la main</p></div>`
+    : `<div class="card"><p class="muted small">Avec une clé API (Paramètres), tu pourras importer la police en photo : l'IA remplit la fiche pour toi.</p></div>`;
+}
+function srcTag(k) { const s = draftC && draftC.aiSrc && draftC.aiSrc[k]; return s ? ` <span class="src ${s === "lu" ? "lu" : "deduit"}">${s}</span>` : ""; }
+
 /* ---------- interface dans la fiche contrat ---------- */
 let docBusy = null; // id du document en cours de transcription
 function contratDocsHtml() {
-  if (editIdx === -1) return `<div class="card"><div class="c-title">Documents</div><p class="muted small">Enregistre d'abord le contrat, puis rouvre-le pour joindre la police.</p></div>`;
+  if (editIdx === -1) return `<div class="card"><div class="c-title">Documents</div><p class="muted small">Importe la police ci-dessus, ou enregistre d'abord le contrat pour y joindre des documents.</p></div>`;
   const docs = draftC.docs || [];
   return `<div class="card"><div class="c-title">Documents</div>
     ${docs.map((d, di) => `<div class="doc">
@@ -186,7 +259,7 @@ function renderTranscription(di) {
     .filter(([, v]) => v);
   $("#screen").innerHTML = `
     <div class="card"><div class="c-title">${esc(t.titre || d.nom)}</div>
-      ${rowsKV.map(([k, v]) => `<div class="row"><div class="r-name">${esc(k)}</div><div class="r-val">${esc(v)}</div></div>`).join("")}
+      ${rowsKV.map(([k, v]) => `<div class="row kv"><div class="r-name">${esc(k)}</div><div class="r-val">${esc(v)}</div></div>`).join("")}
       ${applicable(t).length ? `<button class="btn full" id="btn-apply-tr" data-di="${di}">Reporter ${applicable(t).map((x) => x[0]).join(", ")} dans la fiche</button>` : ""}
     </div>
     ${t.sinistre ? `<div class="section-title">En cas de sinistre</div><div class="card"><p>${esc([t.sinistre.telephone, t.sinistre.delaiDeclaration, t.sinistre.demarche].filter(Boolean).join(" · "))}</p></div>` : ""}
@@ -206,12 +279,18 @@ function applicable(t) {
   if (t.prime && PERIODE_OK.includes(t.prime.periode) && !(Number(draftC.prime) > 0)) out.push(["périodicité", "periode", t.prime.periode]);
   if (t.echeance && /^\d{4}-\d{2}-\d{2}$/.test(t.echeance) && t.echeance !== draftC.echeance) out.push(["échéance", "echeance", t.echeance]);
   if (t.delaiResiliationMois != null && Number(t.delaiResiliationMois) !== Number(draftC.delaiMois)) out.push(["délai", "delaiMois", Number(t.delaiResiliationMois)]);
+  const dd = t.deduit || {};
+  if (!t.echeance && /^\d{4}-\d{2}-\d{2}$/.test(dd.echeance || "") && dd.echeance !== draftC.echeance) out.push(["échéance (déduite)", "echeance", dd.echeance]);
+  if (t.delaiResiliationMois == null && dd.delaiResiliationMois != null && Number(dd.delaiResiliationMois) !== Number(draftC.delaiMois)) out.push(["délai (déduit)", "delaiMois", Number(dd.delaiResiliationMois)]);
   if (t.fournisseur && !draftC.fournisseur) out.push(["fournisseur", "fournisseur", t.fournisseur]);
   return out;
 }
 
 /* ---------- écouteurs ---------- */
 $("#screen").addEventListener("change", async (e) => {
+  if (current === "contrat-edit" && e.target.id === "new-doc-input") {
+    const files = [...e.target.files]; e.target.value = ""; if (files.length) importNewContract(files); return;
+  }
   if (current !== "contrat-edit" || e.target.id !== "doc-input") return;
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
   const doc = { id: "doc" + Date.now().toString(36), nom: files.length === 1 ? files[0].name.replace(/\.[^.]+$/, "") : "Document " + ((draftC.docs || []).length + 1), files: [] };

@@ -94,7 +94,7 @@ function renderDocEdit() {
     </div>
     ${t ? `<div class="card"><div class="c-title">${esc(t.titre || "Transcription")}</div>
       ${[["Type", t.type], ["Émetteur", t.emetteur], ["Titulaire", t.titulaire], ["N°", t.numero], ["Émis le", t.dateEmission], ["Expire le", t.dateExpiration]]
-        .filter(([, v]) => v).map(([k, v]) => `<div class="row"><div class="r-name">${esc(k)}</div><div class="r-val">${esc(v)}</div></div>`).join("")}
+        .filter(([, v]) => v).map(([k, v]) => `<div class="row kv"><div class="r-name">${esc(k)}</div><div class="r-val">${esc(v)}</div></div>`).join("")}
       ${(t.montants || []).length ? `<div class="r-sub" style="margin-top:6px;">${t.montants.map((m) => esc(m.libelle + " : " + m.montant)).join(" · ")}</div>` : ""}
       ${t.resume ? `<p class="small" style="margin-top:8px;">${esc(t.resume)}</p>` : ""}
       ${t.dateExpiration && /^\d{4}-\d{2}-\d{2}$/.test(t.dateExpiration) && t.dateExpiration !== d.expire ? `<button class="btn full" id="v-apply-exp">Utiliser l'expiration ${fmtDate(t.dateExpiration)}</button>` : ""}

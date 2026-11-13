@@ -351,3 +351,22 @@ body.tour-on main{padding-bottom:230px;}
 #demo-banner strong{color:var(--gold);font-weight:600;}
 #demo-banner button{border-color:var(--border);color:var(--text);}
 #tour-card{border-color:var(--border);}
+
+/* 0.32.0 — pas de débordement horizontal (sinon le téléphone permet de dézoomer) */
+html,body{overflow-x:hidden;max-width:100%;}
+main{overflow-wrap:break-word;}
+.card,.list,.doc-main,.c-title,.r-name,.r-sub,.muted{min-width:0;overflow-wrap:anywhere;}
+.doc-main{flex:1;}
+.row.kv{align-items:flex-start;}
+.row.kv .r-name{flex:none;color:var(--muted);font-size:14px;}
+.row.kv .r-val{white-space:normal;text-align:right;overflow-wrap:anywhere;font-weight:500;max-width:65%;}
+img{max-width:100%;}
+/* import de police */
+.ai-card{border-color:var(--gold);}
+.ai-card .c-title{display:flex;align-items:center;gap:8px;}
+.ai-card .c-title .ic{color:var(--green);}
+.src{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:1px;}
+.src.lu{background:rgba(123,216,143,.14);color:var(--green);}
+.src.deduit{background:rgba(212,180,131,.16);color:var(--gold);}
+.spinner{width:26px;height:26px;border:2.5px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:10px auto 4px;}
+@keyframes spin{to{transform:rotate(360deg);}}

@@ -73,7 +73,7 @@ function renderContrats() {
     <div class="summary"><div class="label">Primes et abonnements</div>
       <div class="big">${fmtCHF(totalPrimesMensuelles())}<span class="per"> / mois</span></div>
       <div class="delta muted">${admin.contrats.length} contrat(s) · ${fmtCHF(totalPrimesMensuelles() * 12)} par an</div></div>
-    ${list.length ? `<div class="section-title">Par prochaine date limite de résiliation</div>` : ""}
+    ${list.length ? `<div class="section-title">Par prochaine date de décision</div>` : ""}
     ${list.map(({ c, i, dl }) => {
       const n = daysUntil(dl);
       const ended = dl !== null && (c.tacite === false || n < 0); // contrat sans renouvellement : il prend fin tout seul
@@ -100,28 +100,30 @@ function openContrat(i) {
 }
 function renderContratEdit() {
   const c = draftC; if (!c) { go("contrats"); return; }
-  setTitle(editIdx === -1 ? "Nouveau contrat" : "Contrat");
+  setTitle(editIdx === -1 || c._new ? "Nouveau contrat" : "Contrat");
   setBottomBar(`<button class="btn btn-side" id="btn-cancel-contrat">Annuler</button><button class="btn primary btn-main" id="btn-save-contrat">Enregistrer</button>`);
   const dl = deadline(c);
+  const L = (txt, k) => `<label class="field">${txt}${typeof srcTag === "function" ? srcTag(k) : ""}</label>`;
   $("#screen").innerHTML = `
+    ${typeof newImportHtml === "function" ? newImportHtml() : ""}
     <div class="card">
-      <label class="field">Type</label>
+      ${L("Type", "type")}
       <select class="sm-input" data-c="type">${CONTRAT_TYPES.map(([t]) => `<option ${t === c.type ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>
-      <label class="field">Assureur / fournisseur</label><input type="text" class="sm-input" data-c="fournisseur" value="${esc(c.fournisseur)}" placeholder="ex. CSS, Mobilière, Swisscom">
+      ${L("Assureur / fournisseur", "fournisseur")}<input type="text" class="sm-input" data-c="fournisseur" value="${esc(c.fournisseur)}" placeholder="ex. CSS, Mobilière, Swisscom">
       <div class="tx-grid">
-        <div><label class="field">N° de police / client</label><input type="text" class="sm-input" data-c="numero" value="${esc(c.numero)}"></div>
+        <div>${L("N° de police / client", "numero")}<input type="text" class="sm-input" data-c="numero" value="${esc(c.numero)}"></div>
         <div><label class="field">Titulaire</label><select class="sm-input" data-c="titulaire">${TITULAIRES.map((t) => `<option ${t === c.titulaire ? "selected" : ""}>${t}</option>`).join("")}</select></div>
-        <div><label class="field">Prime (CHF)</label><input type="text" inputmode="decimal" class="sm-input" data-c="prime" data-num="1" value="${esc(c.prime)}"></div>
-        <div><label class="field">Périodicité</label><select class="sm-input" data-c="periode">${Object.keys(PERIODES).map((p) => `<option ${p === c.periode ? "selected" : ""}>${p}</option>`).join("")}</select></div>
+        <div>${L("Prime (CHF)", "prime")}<input type="text" inputmode="decimal" class="sm-input" data-c="prime" data-num="1" value="${esc(c.prime)}"></div>
+        <div>${L("Périodicité", "periode")}<select class="sm-input" data-c="periode">${Object.keys(PERIODES).map((p) => `<option ${p === c.periode ? "selected" : ""}>${p}</option>`).join("")}</select></div>
       </div>
     </div>
     <div class="card">
       <div class="c-title">Résiliation</div>
       <div class="tx-grid">
-        <div><label class="field">Début du contrat</label><input type="date" class="sm-input" data-c="debut" value="${esc(c.debut)}"></div>
-        <div><label class="field">Échéance</label><input type="date" class="sm-input" data-c="echeance" value="${esc(c.echeance)}"></div>
-        <div><label class="field">Délai de résiliation (mois)</label><input type="text" inputmode="numeric" class="sm-input" data-c="delaiMois" data-num="1" value="${esc(c.delaiMois)}"></div>
-        <div><label class="field">Renouvellement</label><select class="sm-input" data-c="tacite"><option value="1" ${c.tacite !== false ? "selected" : ""}>tacite, chaque année</option><option value="0" ${c.tacite === false ? "selected" : ""}>non (prend fin)</option></select></div>
+        <div>${L("Début du contrat", "debut")}<input type="date" class="sm-input" data-c="debut" value="${esc(c.debut)}"></div>
+        <div>${L("Échéance", "echeance")}<input type="date" class="sm-input" data-c="echeance" value="${esc(c.echeance)}"></div>
+        <div>${L("Délai de résiliation (mois)", "delaiMois")}<input type="text" inputmode="numeric" class="sm-input" data-c="delaiMois" data-num="1" value="${esc(c.delaiMois)}"></div>
+        <div>${L("Renouvellement", "tacite")}<select class="sm-input" data-c="tacite"><option value="1" ${c.tacite !== false ? "selected" : ""}>tacite, chaque année</option><option value="0" ${c.tacite === false ? "selected" : ""}>non (prend fin)</option></select></div>
       </div>
       <p class="muted small" id="c-dl">${dlText(c)}</p>
       ${dl && daysUntil(dl) >= 0 && c.tacite !== false && typeof gcalLink === "function" ? `<a class="btn full" href="${gcalLink((c.fournisseur || c.type) + " : décider (renouvellement le " + fmtDate(iso(nextEcheance(c))) + ")", iso(dl), "Dernier jour pour que la lettre de résiliation soit reçue, si tu veux changer. Envoi en recommandé ~10 jours avant.", "annuelle")}" target="_blank" rel="noopener">${ic("calendar")}Ajouter la date limite à mon agenda</a>` : ""}
@@ -131,7 +133,7 @@ function renderContratEdit() {
     ${typeof astucesHtml === "function" ? astucesHtml(c) : ""}
     ${typeof contratDocsHtml === "function" ? contratDocsHtml() : ""}
     <div class="card"><label class="field">Notes</label><textarea class="sm-input" rows="3" data-c="notes">${esc(c.notes || "")}</textarea></div>
-    ${editIdx !== -1 ? `<button class="btn full danger" id="btn-del-contrat">Supprimer ce contrat</button>` : ""}`;
+    ${editIdx !== -1 && !c._new ? `<button class="btn full danger" id="btn-del-contrat">Supprimer ce contrat</button>` : ""}`;
   if (typeof fillThumbs === "function") fillThumbs();
 }
 function dlText(c) {
@@ -175,9 +177,17 @@ $("#screen").addEventListener("click", (e) => {
 $("#bottombar").addEventListener("click", (e) => {
   const t = e.target.closest("button"); if (!t) return;
   if (t.id === "btn-new-contrat") openContrat(-1);
-  else if (t.id === "btn-cancel-contrat") { draftC = null; go("contrats"); }
+  else if (t.id === "btn-cancel-contrat") {
+    if (draftC && draftC._new && admin.contrats[editIdx] && admin.contrats[editIdx]._new) {
+      if (!confirm("Abandonner ce nouveau contrat ? La police importée sera supprimée.")) return;
+      (admin.contrats[editIdx].docs || []).forEach((d) => d.files.forEach((fid) => { if (typeof delFile === "function") delFile(fid).catch(() => {}); }));
+      admin.contrats.splice(editIdx, 1); saveAdmin();
+    }
+    draftC = null; go("contrats");
+  }
   else if (t.id === "btn-save-contrat") {
     if (!String(draftC.fournisseur || "").trim()) { alert("Indique l'assureur ou le fournisseur."); return; }
+    delete draftC._new; delete draftC.aiSrc; delete draftC.aiNote;
     if (editIdx === -1) admin.contrats.push(draftC); else admin.contrats[editIdx] = draftC;
     saveAdmin(); draftC = null; go("contrats");
   }
