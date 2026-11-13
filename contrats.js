@@ -50,9 +50,16 @@ function totalPrimesMensuelles() { return admin.contrats.reduce((s, c) => s + pr
 
 // Échéances à signaler sur l'accueil (≤ 60 jours).
 function contratAlerts() {
-  return admin.contrats.map((c) => ({ c, dl: deadline(c) })).filter((x) => x.dl && daysUntil(x.dl) >= 0 && daysUntil(x.dl) <= 60)
-    .sort((a, b) => a.dl - b.dl)
-    .map(({ c, dl }) => ({ c: daysUntil(dl) <= 14 ? "red" : "", t: `Résilier ${c.fournisseur || c.type} avant le ${fmtDate(iso(dl))} (${daysUntil(dl)} j)` }));
+  // Formulation neutre : on signale une décision à prendre, on ne pousse pas à résilier.
+  return admin.contrats.map((c) => {
+    const nm = c.fournisseur || c.type;
+    if (c.tacite === false) { // contrat qui prend fin tout seul : simple information
+      const e = nextEcheance(c), n = daysUntil(e);
+      return e && n >= 0 && n <= 60 ? { at: e, c: "", t: `${nm} : fin du contrat le ${fmtDate(iso(e))} (${n} j)` } : null;
+    }
+    const dl = deadline(c), n = daysUntil(dl);
+    return dl && n >= 0 && n <= 60 ? { at: dl, c: n <= 14 ? "red" : "", t: `${nm} : se renouvelle le ${fmtDate(iso(nextEcheance(c)))}, pour changer décider avant le ${fmtDate(iso(dl))} (${n} j)` } : null;
+  }).filter(Boolean).sort((a, b) => a.at - b.at).map(({ c, t }) => ({ c, t }));
 }
 
 /* ---------- liste ---------- */
@@ -69,12 +76,13 @@ function renderContrats() {
     ${list.length ? `<div class="section-title">Par prochaine date limite de résiliation</div>` : ""}
     ${list.map(({ c, i, dl }) => {
       const n = daysUntil(dl);
-      const ended = dl !== null && n < 0; // contrat sans renouvellement dont le délai est passé
+      const ended = dl !== null && (c.tacite === false || n < 0); // contrat sans renouvellement : il prend fin tout seul
       const cls = dl === null || ended ? "" : n <= 14 ? "urgent" : n <= 60 ? "soon" : "";
+      
       return `<button class="card contrat ${cls}" data-contrat="${i}">
         <div class="li-head"><span class="c-title">${esc(c.fournisseur || "Sans nom")}</span><span class="r-val">${fmtCHF2(primeMensuelle(c))}<span class="per">/mois</span></span></div>
         <div class="r-sub">${esc(c.type)}${c.titulaire && c.titulaire !== "Moi" ? " · " + esc(c.titulaire) : ""}${c.numero ? " · n° " + esc(c.numero) : ""}</div>
-        <div class="deadline">${ended ? `Sans renouvellement · ${daysUntil(nextEcheance(c)) >= 0 ? "prend fin le" : "terminé le"} ${fmtDate(iso(nextEcheance(c)))}` : dl ? `Résilier avant le <strong>${fmtDate(iso(dl))}</strong> · ${n} jour(s) · échéance ${fmtDate(iso(nextEcheance(c)))}` : "Pas d'échéance renseignée"}</div>
+        <div class="deadline">${ended ? `Sans renouvellement · ${daysUntil(nextEcheance(c)) >= 0 ? "prend fin le" : "terminé le"} ${fmtDate(iso(nextEcheance(c)))}` : dl ? `Se renouvelle le ${fmtDate(iso(nextEcheance(c)))} · pour changer : avant le <strong>${fmtDate(iso(dl))}</strong> (${n} j)` : "Pas d'échéance renseignée"}</div>
       </button>`;
     }).join("") || `<div class="card"><p class="muted">Aucun contrat. Ajoute tes assurances, ton bail et tes abonnements : Ordovie calcule pour chacun la date limite pour résilier et te prévient sur l'accueil 60 jours avant.</p></div>`}
     <p class="muted small">La date limite est celle où ta lettre doit être <strong>reçue</strong>. Envoie-la en recommandé une dizaine de jours avant.</p>`;
@@ -115,8 +123,8 @@ function renderContratEdit() {
         <div><label class="field">Délai de résiliation (mois)</label><input type="text" inputmode="numeric" class="sm-input" data-c="delaiMois" data-num="1" value="${esc(c.delaiMois)}"></div>
         <div><label class="field">Renouvellement</label><select class="sm-input" data-c="tacite"><option value="1" ${c.tacite !== false ? "selected" : ""}>tacite, chaque année</option><option value="0" ${c.tacite === false ? "selected" : ""}>non (prend fin)</option></select></div>
       </div>
-      <p class="muted small" id="c-dl">${dl && daysUntil(dl) < 0 ? "Sans renouvellement : le délai de résiliation est passé, le contrat prend fin à l'échéance." : dl ? `Date limite de réception : <strong>${fmtDate(iso(dl))}</strong> (dans ${daysUntil(dl)} jours) pour l'échéance du ${fmtDate(iso(nextEcheance(c)))}.` : "Indique l'échéance pour calculer la date limite."}</p>
-      ${dl && daysUntil(dl) >= 0 && typeof gcalLink === "function" ? `<a class="btn full" href="${gcalLink("Résilier " + (c.fournisseur || c.type) + " (date limite)", iso(dl), "Lettre recommandée à envoyer ~10 jours avant. Échéance du contrat : " + fmtDate(iso(nextEcheance(c))), c.tacite !== false ? "annuelle" : "aucune")}" target="_blank" rel="noopener">📅 Ajouter la date limite à mon agenda</a>` : ""}
+      <p class="muted small" id="c-dl">${dlText(c)}</p>
+      ${dl && daysUntil(dl) >= 0 && c.tacite !== false && typeof gcalLink === "function" ? `<a class="btn full" href="${gcalLink((c.fournisseur || c.type) + " : décider (renouvellement le " + fmtDate(iso(nextEcheance(c))) + ")", iso(dl), "Dernier jour pour que la lettre de résiliation soit reçue, si tu veux changer. Envoi en recommandé ~10 jours avant.", "annuelle")}" target="_blank" rel="noopener">📅 Ajouter la date limite à mon agenda</a>` : ""}
       <p class="muted small">Où trouver ces infos : sur ta police ou tes conditions générales, rubrique « durée » ou « résiliation ».</p>
     </div>
     ${editIdx !== -1 && typeof aiReady === "function" && aiReady() ? `<button class="btn full" id="btn-ask-contrat">💬 Une question sur ce contrat ?</button>` : ""}
@@ -126,10 +134,16 @@ function renderContratEdit() {
     ${editIdx !== -1 ? `<button class="btn full danger" id="btn-del-contrat">Supprimer ce contrat</button>` : ""}`;
   if (typeof fillThumbs === "function") fillThumbs();
 }
+function dlText(c) {
+  const dl = deadline(c), e = nextEcheance(c);
+  if (!dl) return "Indique l'échéance pour calculer la date limite.";
+  if (c.tacite === false) return `Sans renouvellement : le contrat prend fin le <strong>${fmtDate(iso(e))}</strong>. Rien à faire.`;
+  if (daysUntil(dl) < 0) return `Délai passé pour l'échéance du ${fmtDate(iso(e))}.`;
+  return `Se renouvelle le ${fmtDate(iso(e))}. Si tu veux résilier ou changer, ta lettre doit être reçue avant le <strong>${fmtDate(iso(dl))}</strong> (dans ${daysUntil(dl)} jours).`;
+}
 function refreshDeadline() {
   const el = document.getElementById("c-dl"); if (!el) return;
-  const dl = deadline(draftC);
-  el.innerHTML = dl && daysUntil(dl) < 0 ? "Sans renouvellement : le délai de résiliation est passé, le contrat prend fin à l'échéance." : dl ? `Date limite de réception : <strong>${fmtDate(iso(dl))}</strong> (dans ${daysUntil(dl)} jours) pour l'échéance du ${fmtDate(iso(nextEcheance(draftC)))}.` : "Indique l'échéance pour calculer la date limite.";
+  el.innerHTML = dlText(draftC);
 }
 
 /* ---------- écouteurs (une fois) ---------- */

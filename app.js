@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.29.0"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.29.1"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -272,7 +272,7 @@ async function renderSettings() {
 
     <div class="card danger-zone">
       <div class="c-title">Effacer toutes les données</div>
-      <p class="muted small">Supprime de ce téléphone : finances, contrats, documents et leurs pages, rappels, conversations. Le verrouillage, la clé API et les réglages sont conservés. Fais d'abord une sauvegarde chiffrée si tu veux pouvoir revenir en arrière.</p>
+      <p class="muted small">Supprime de ce téléphone : finances, contrats, documents et leurs pages, rappels, conversations. Ensuite, tu choisis si tu effaces aussi la clé API et le verrouillage (remise à zéro complète). Fais d'abord une sauvegarde chiffrée si tu veux pouvoir revenir en arrière.</p>
       <button class="btn danger" id="btn-wipe">Effacer toutes les données…</button>
     </div>
     <div class="version">Ordovie ${esc(APP_VERSION)}</div>`;
@@ -382,8 +382,11 @@ $("#screen").addEventListener("click", async (e) => {
     const ok = prompt("Effacer TOUTES les données de l'app ?\n" + (d === null ? "⚠️ Tu n'as jamais fait de sauvegarde chiffrée." : "Dernière sauvegarde : il y a " + d + " jour(s).") + "\n\nTape EFFACER pour confirmer :");
     if (ok !== "EFFACER") { if (ok !== null) alert("Rien n'a été effacé."); return; }
     if (typeof exitDemo === "function") { await exitDemo(false); } // efface finances, contrats, documents (et pages), rappels…
-    delete settings.lastExport; saveSettings();
-    alert("Toutes les données ont été effacées.");
+    const full = confirm("Données effacées.\n\nEffacer AUSSI la clé API, le verrouillage (empreinte / mot de passe) et le profil ?\n\nOK = remise à zéro complète (comme une app neuve)\nAnnuler = les garder");
+    if (full) { settings = {}; localStorage.removeItem(SETTINGS_KEY); }
+    else { delete settings.lastExport; saveSettings(); }
+    alert(full ? "Remise à zéro complète effectuée : l'app est comme neuve." : "Données effacées. Clé API et verrouillage conservés.");
+    go("home");
   }
   else if (t.id === "btn-start-empty") { state = mergeDefaults({}); saveData(); go("finances"); }
   else if (t.id === "btn-rappels") go("rappels");
