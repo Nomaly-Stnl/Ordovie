@@ -175,7 +175,7 @@ function securityCards() {
   const d = daysSince(settings.lastExport);
   const backupCard = `<div class="card">
     <div class="c-title">Sauvegarde chiffrée</div>
-    <p class="muted">Un fichier <strong>.ordovie</strong> chiffré par un mot de passe, à copier sur ton NAS. Dernière sauvegarde : ${d === null ? "jamais" : "il y a " + d + " jour(s)"}.</p>
+    <p class="muted">Un fichier <strong>.ordovie</strong> chiffré par un mot de passe, à copier hors du téléphone (ordinateur, Drive, NAS…). Dernière sauvegarde : ${d === null ? "jamais" : "il y a " + d + " jour(s)"}.</p>
     ${secUi === "backup" ? `
       <form data-secform="backup">
         <input type="password" class="big-input" name="p1" placeholder="Mot de passe de la sauvegarde" autocomplete="new-password">
@@ -235,7 +235,7 @@ $("#screen").addEventListener("submit", async (e) => {
     downloadText(text, "ordovie-" + new Date().toISOString().slice(0, 10) + ".ordovie", "application/octet-stream");
     settings.lastExport = new Date().toISOString(); saveSettings();
     secUi = null; go("settings");
-    alert("Sauvegarde créée (dossier Téléchargements). Copie-la sur ton NAS.");
+    alert("Sauvegarde créée (dossier Téléchargements). Copie-la hors du téléphone (ordinateur, Drive, NAS…).");
   } else if (kind === "restore") {
     let payload;
     try { payload = await openEncryptedBackup(pendingBackup, p1); }

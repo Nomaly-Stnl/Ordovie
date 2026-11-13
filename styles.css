@@ -312,3 +312,16 @@ body.demo-on{padding-top:calc(92px + var(--safe-top));}
 body.tour-on main{padding-bottom:230px;}
 .danger-zone{border-color:var(--red);margin-top:20px;}
 .btn.danger{border-color:var(--red);color:var(--red);}
+
+/* premiers pas */
+.card.onboard{padding:6px 14px;}
+.ob-step{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font:inherit;padding:12px 0;cursor:pointer;}
+.ob-step strong{display:block;font-size:14.5px;font-weight:600;}
+.ob-step.ok strong{color:var(--muted);font-weight:400;text-decoration:line-through;}
+.ob-step.next strong{color:var(--gold);}
+.ob-chk{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:1px;}
+.ob-step.ok .ob-chk{background:var(--green);border-color:transparent;color:#0b0f16;}
+.ob-step.next .ob-chk{border-color:var(--gold);}
+.ob-foot{display:flex;justify-content:space-between;padding:10px 0 6px;}
+.card.flash{animation:flash 1.6s ease-out;}
+@keyframes flash{0%{box-shadow:0 0 0 2px var(--gold);}100%{box-shadow:0 0 0 2px transparent;}}

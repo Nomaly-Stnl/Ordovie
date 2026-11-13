@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.29.1"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.30.0"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -88,17 +88,50 @@ function todoItems() {
     return items;
   }
   const pm = previousCalendarMonth();
-  if (!state.historique[pm]) items.push({ c: "", t: "Mois de " + monthLabel(pm) + " pas encore clôturé" });
+  const ob = onboardVisible() && !Object.keys(state.historique || {}).length; // nouvel utilisateur : la liste « Premiers pas » s'en charge
+  if (!ob && !state.historique[pm]) items.push({ c: "", t: "Mois de " + monthLabel(pm) + " pas encore clôturé" });
   if (typeof contratAlerts === "function") items.push(...contratAlerts());
   if (typeof docAlerts === "function") items.push(...docAlerts());
   if (typeof taxAlerts === "function") items.push(...taxAlerts());
   if (typeof rappelAlerts === "function") items.push(...rappelAlerts());
   const d = daysSince(settings.lastExport);
-  if (settings.demo) { /* démo : pas de rappel de sauvegarde (bloquée en démo) */ }
+  if (settings.demo || (onboardVisible() && !settings.lastExport)) { /* démo ou premiers pas : déjà signalé ailleurs */ }
   else if (d === null) items.push({ c: "red", t: "Aucune sauvegarde chiffrée faite (Paramètres)" });
   else if (d > 30) items.push({ c: "red", t: "Dernière sauvegarde il y a " + d + " jours" });
   if (!items.length) items.push({ c: "green", t: "Rien d'urgent" });
   return items;
+}
+
+/* ---------- premiers pas (nouvel utilisateur) ---------- */
+function onboardSteps() {
+  const p = settings.profil || {};
+  return [
+    { k: "profil", t: "Ton profil", h: "Prénom et canton : l'assistant adapte ses réponses.", ok: !!(p.prenom && p.canton), go: "settings" },
+    { k: "cloture", t: "Ta première clôture du mois", h: "≈ 10 minutes : comptes, revenus, dépenses. La base de tout le suivi.", ok: !!(state && Object.keys(state.historique || {}).length), go: "cloture" },
+    { k: "contrat", t: "Ton premier contrat", h: "Assurance maladie, bail, abonnement… L'app te dira quand décider.", ok: !!(admin.contrats || []).length, go: "contrats" },
+    { k: "lock", t: "Protéger l'app", h: "Empreinte ou mot de passe à l'ouverture.", ok: typeof lockEnabled === "function" && lockEnabled(), go: "settings" },
+    { k: "backup", t: "Ta première sauvegarde chiffrée", h: "Un fichier protégé par mot de passe, à garder hors du téléphone.", ok: !!settings.lastExport, go: "settings" },
+    { k: "ia", t: "Activer l'IA (facultatif)", h: "Clé API Claude : lecture des contrats par photo et assistant.", ok: !!settings.apiKey, go: "settings", opt: true },
+  ];
+}
+// Masquée pour un utilisateur déjà installé (≥ 2 clôtures) ou quand tout est fait.
+function onboardVisible() {
+  if (!state || settings.onboardDone || settings.demo || Object.keys(state.historique || {}).length >= 2) return false;
+  return onboardSteps().some((s) => !s.ok && !s.opt);
+}
+function onboardHtml() {
+  if (!onboardVisible()) return "";
+  const st = onboardSteps(), req = st.filter((s) => !s.opt), done = req.filter((s) => s.ok).length;
+  const next = st.find((s) => !s.ok);
+  return `<div class="section-title">Premiers pas <span class="legend">${done} / ${req.length}</span></div>
+    <div class="card onboard">
+      ${st.map((s) => `<button class="ob-step ${s.ok ? "ok" : ""} ${s === next ? "next" : ""}" data-ob="${s.go}" data-obk="${s.k}">
+        <span class="ob-chk">${s.ok ? "✓" : ""}</span><span><strong>${esc(s.t)}</strong>${s.ok ? "" : `<span class="r-sub">${esc(s.h)}</span>`}</span></button>`).join("")}
+      <div class="ob-foot">
+        ${typeof appIsEmpty === "function" && appIsEmpty() ? '<button class="link-btn" id="demo-again">🎭 Revoir la démo</button>' : "<span></span>"}
+        <button class="link-btn" id="ob-hide">${done === req.length ? "Terminé, masquer" : "Masquer"}</button>
+      </div>
+    </div>`;
 }
 
 function renderHome() {
@@ -121,6 +154,7 @@ function renderHome() {
   }
   $("#screen").innerHTML = `
     <div class="summary">${eyeBtn()}${summary}</div>
+    ${onboardHtml()}
     <div class="section-title">À traiter <button class="link-btn legend-link" id="btn-rappels">🔔 Rappels</button></div>
     <div class="todo">
       ${todoItems().map((i) => `<div class="todo-item"><span class="dot ${i.c}"></span>${esc(i.t)}</div>`).join("")}
@@ -148,6 +182,15 @@ function renderFinances() {
     return;
   }
   setBottomBar('<button class="btn btn-side" id="btn-gerer">Paramètres</button><button class="btn primary btn-main" id="btn-close-month">Clôturer le mois</button>');
+  if (!Object.keys(state.historique || {}).length && !patrimoineTotal()) {
+    $("#screen").innerHTML = `
+      <div class="card"><div class="c-title">Ta première clôture</div>
+        <p class="muted">Une fois par mois, tu notes tes soldes, revenus et dépenses. Ordovie en tire ton patrimoine net, ton budget, ton taux d'épargne et leur évolution.</p>
+        <p class="muted">La première prend ≈ 10 minutes, les suivantes 5. Rien n'est enregistré avant la validation finale.</p>
+        <button class="btn primary full" id="btn-close-month">Faire ma première clôture</button></div>
+      <p class="muted small">Tu as une sauvegarde Ordovie ? Roue ⚙️ → Restaurer / importer.</p>`;
+    return;
+  }
   const actifs = totalActifs();
   const cib = (state.params && state.params.cibles) || {};
   const rows = [
@@ -249,7 +292,7 @@ async function renderSettings() {
 
     <div class="card">
       <div class="c-title">Clé API Claude</div>
-      <p class="muted">Gardée uniquement sur ce téléphone, jamais publiée. Servira aux questions d'assurance (palier 3).</p>
+      <p class="muted">Gardée uniquement sur ce téléphone, jamais publiée. Active la lecture des contrats par photo et l'assistant.</p>
       <label class="field" for="api-key">Clé ${hasKey ? "(enregistrée)" : ""}</label>
       <input type="password" id="api-key" autocomplete="off" placeholder="${hasKey ? "•••••••• (remplacer)" : "sk-ant-…"}">
       <div class="btn-row">
@@ -266,7 +309,7 @@ async function renderSettings() {
     <div class="card">
       <div class="c-title">Stockage</div>
       <p class="muted">Stockage persistant : <strong>${persisted === null ? "inconnu" : persisted ? "activé" : "non activé"}</strong>.
-      Protège contre un nettoyage automatique du navigateur. Seule la sauvegarde sur ton NAS protège contre la perte du téléphone.</p>
+      Protège contre un nettoyage automatique du navigateur. Seule une sauvegarde gardée hors du téléphone protège contre la perte du téléphone.</p>
       ${persisted ? "" : '<button class="btn" id="persist">Activer</button>'}
     </div>
 
@@ -390,6 +433,15 @@ $("#screen").addEventListener("click", async (e) => {
   }
   else if (t.id === "btn-start-empty") { state = mergeDefaults({}); saveData(); go("finances"); }
   else if (t.id === "btn-rappels") go("rappels");
+  else if (t.id === "ob-hide") { settings.onboardDone = true; saveSettings(); go("home"); }
+  else if (t.dataset && t.dataset.ob) {
+    if (t.dataset.ob === "cloture") { startCloture(); return; }
+    go(t.dataset.ob);
+    // Paramètres : amener directement à la bonne carte
+    const sel = { profil: '[data-profil="prenom"]', lock: '[data-sec="setpwd"],[data-sec="lock-off"]', backup: '[data-sec="backup"]', ia: "#api-key" }[t.dataset.obk];
+    const el = sel && document.querySelector(sel);
+    if (el) { el.closest(".card").scrollIntoView({ block: "start" }); el.closest(".card").classList.add("flash"); }
+  }
   else if (t.id === "btn-ask") openAssistant(null);
   else if (t.id === "btn-test-ai") {
     const box = $("#ai-models"); box.innerHTML = '<p class="muted small">Connexion…</p>';

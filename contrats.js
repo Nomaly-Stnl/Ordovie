@@ -84,8 +84,8 @@ function renderContrats() {
         <div class="r-sub">${esc(c.type)}${c.titulaire && c.titulaire !== "Moi" ? " · " + esc(c.titulaire) : ""}${c.numero ? " · n° " + esc(c.numero) : ""}</div>
         <div class="deadline">${ended ? `Sans renouvellement · ${daysUntil(nextEcheance(c)) >= 0 ? "prend fin le" : "terminé le"} ${fmtDate(iso(nextEcheance(c)))}` : dl ? `Se renouvelle le ${fmtDate(iso(nextEcheance(c)))} · pour changer : avant le <strong>${fmtDate(iso(dl))}</strong> (${n} j)` : "Pas d'échéance renseignée"}</div>
       </button>`;
-    }).join("") || `<div class="card"><p class="muted">Aucun contrat. Ajoute tes assurances, ton bail et tes abonnements : Ordovie calcule pour chacun la date limite pour résilier et te prévient sur l'accueil 60 jours avant.</p></div>`}
-    <p class="muted small">La date limite est celle où ta lettre doit être <strong>reçue</strong>. Envoie-la en recommandé une dizaine de jours avant.</p>`;
+    }).join("") || `<div class="card"><p class="muted">Aucun contrat. Ajoute tes assurances, ton bail et tes abonnements : Ordovie calcule pour chacun jusqu'à quand tu peux changer et te prévient sur l'accueil 60 jours avant.</p></div>`}
+    <p class="muted small">Si tu décides de changer : la lettre doit être <strong>reçue</strong> avant la date limite. Envoie-la en recommandé une dizaine de jours avant.</p>`;
 }
 
 /* ---------- fiche ---------- */

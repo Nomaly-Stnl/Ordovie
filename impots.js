@@ -1,6 +1,7 @@
 // Ordovie — Impôts : page d'information pour préparer la déclaration, à partir de ce que l'app sait déjà.
 // Pas de calcul d'impôt (barèmes cantonaux trop complexes) : check-list des pièces, déductions à vérifier, valeurs utiles.
 "use strict";
+function isBerne() { return /^(be|bern|berne)$/i.test(((settings.profil || {}).canton || "").trim()); }
 
 function imp() { admin.impots = admin.impots || {}; const y = String(Number(state ? state.params.anneeFiscale : new Date().getFullYear())); admin.impots[y] = admin.impots[y] || { delai: "", coche: {} }; return { y, o: admin.impots[y] }; }
 
@@ -65,7 +66,7 @@ function taxDeclaration() {
       <div class="c-title">Délai de dépôt</div>
       <div class="edit-row"><span class="name">Délai indiqué sur ta lettre des impôts</span><input type="date" class="sm-input" id="tax-delai" value="${esc(o.delai)}" style="width:150px;"></div>
       ${dl ? `<p class="small ${n < 0 ? "neg" : n <= 30 ? "gold" : ""}">${n < 0 ? "Délai dépassé de " + (-n) + " jours" : "Dans " + n + " jours"}</p>` : ""}
-      <p class="muted small">Dans le canton de Berne, le délai figure sur la lettre qui accompagne la déclaration. Il peut être prolongé en ligne sur <a href="https://www.taxme.ch" target="_blank" rel="noopener">taxme.ch</a> (ou par téléphone) avec les codes de la lettre. Sans prolongation, une sommation payante peut être envoyée.</p>
+      <p class="muted small">${isBerne() ? `Dans le canton de Berne, le délai figure sur la lettre qui accompagne la déclaration. Il peut être prolongé en ligne sur <a href="https://www.taxme.ch" target="_blank" rel="noopener">taxme.ch</a> (ou par téléphone) avec les codes de la lettre.` : `Le délai figure sur la lettre des impôts de ton canton. Il peut en général être prolongé en ligne avec les codes de cette lettre.`} Sans prolongation, une sommation payante peut être envoyée.</p>
     </div>
 
     <div class="section-title">Pièces à rassembler</div>
@@ -87,7 +88,7 @@ function taxDeclaration() {
 
     <div class="section-title">Déductions à vérifier</div>
     <div class="card">${DEDUCTIONS.map(([t, h]) => `<details class="art"><summary>${esc(t)}</summary><p>${esc(h)}</p></details>`).join("")}
-      <p class="muted small">Montants et plafonds exacts : guide officiel de la déclaration du canton de Berne. En cas de doute, une fiduciaire ou l'Intendance des impôts.</p></div>`;
+      <p class="muted small">Montants et plafonds exacts : guide officiel de la déclaration ${isBerne() ? "du canton de Berne" : "de ton canton"}. En cas de doute, une fiduciaire ou l'administration fiscale cantonale.</p></div>`;
 }
 
 $("#screen").addEventListener("change", (e) => {

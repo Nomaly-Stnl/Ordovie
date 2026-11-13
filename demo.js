@@ -5,9 +5,13 @@
 
 const DEMO_REF = 2026 * 12 + 10; // (mois 0-based) données rédigées pour novembre 2026 (dernière clôture : octobre 2026)
 
-function appIsEmpty() {
-  return !state && !((admin.contrats || []).length || (admin.documents || []).length || (admin.chats || []).length);
-}
+function adminEmpty() { return !((admin.contrats || []).length || (admin.documents || []).length || (admin.chats || []).length); }
+// « Vide » = rien de réel : pas de finances, ou finances vierges (aucune clôture, rien saisi).
+function financesVirgin() { return !state || (!Object.keys(state.historique || {}).length && !patrimoineTotal()); }
+function appIsEmpty() { return financesVirgin() && adminEmpty(); }
+// Écran de bienvenue : uniquement au tout premier lancement (ou après une remise à zéro).
+function showWelcome() { return !state && adminEmpty() && !inDemo(); }
+function startFresh() { state = mergeDefaults({}); saveData(); }
 function inDemo() { return !!settings.demo; }
 
 /* ---------- décalage des dates : la démo reste « actuelle » quel que soit le mois ---------- */
@@ -41,6 +45,7 @@ function demoPayload() {
 /* ---------- entrer / quitter ---------- */
 async function startDemo() {
   if (!appIsEmpty()) { alert("La démo n'est disponible que dans une app vide."); return; }
+  if (typeof exitDemo === "function" && state && financesVirgin()) state = null;
   const p = demoPayload();
   state = mergeDefaults(p.finances); saveData();
   admin = Object.assign({ contrats: [] }, p.admin); saveAdmin();
@@ -48,19 +53,20 @@ async function startDemo() {
   settings.demo = true; settings.tour = 0; saveSettings();
   go("home");
 }
-async function exitDemo(confirmFirst) {
+async function exitDemo(confirmFirst, fresh) {
   if (confirmFirst && !confirm("Quitter la démo ?\n\nTout le contenu de l'app sera effacé (données d'Alex et tout ce que tu aurais ajouté pendant la démo). Tu repartiras d'une app vide.")) return;
   try { const all = await allFiles(); for (const f of all) await delFile(f.id); } catch (e) {}
   localStorage.removeItem(DATA_KEY); localStorage.removeItem(ADMIN_KEY);
   state = null; admin = { contrats: [] };
   delete settings.demo; delete settings.tour; saveSettings();
+  if (fresh) startFresh(); // fin de démo → directement l'accueil avec « Premiers pas »
   go("home");
 }
 
 /* ---------- accueil vide : choix ---------- */
 const _renderHome = renderHome;
 renderHome = function () {
-  if (appIsEmpty() && !inDemo()) {
+  if (showWelcome()) {
     setTitle("", true); setBottomBar("");
     $("#screen").innerHTML = `
       <div class="welcome">
@@ -71,7 +77,7 @@ renderHome = function () {
       <button class="card choice" id="demo-start"><span class="choice-ic">🎭</span><span><strong>Découvrir avec Alex</strong>
         <span class="r-sub">Une visite guidée avec des données fictives. À la fin, tout est effacé et tu commences avec les tiennes.</span></span></button>
       <button class="card choice" id="demo-skip"><span class="choice-ic">🚀</span><span><strong>Commencer avec mes données</strong>
-        <span class="r-sub">Ouvre Finances → Commencer, puis fais ta première clôture du mois.</span></span></button>
+        <span class="r-sub">Une courte liste « Premiers pas » te guide, étape par étape.</span></span></button>
       <p class="muted small" style="text-align:center;">Tu as une sauvegarde Ordovie ? Roue ⚙️ → Restaurer / importer.</p>`;
     return;
   }
@@ -105,7 +111,7 @@ function renderDemoChrome() {
   const st = TOUR[i];
   c.innerHTML = `<div class="tour-step">${i + 1} / ${TOUR.length}</div><div class="tour-t">${esc(st.t)}</div><div class="tour-x">${esc(st.x)}</div>
     <div class="tour-btns">${st.end
-      ? `<button class="btn" id="tour-free">Explorer la démo</button><button class="btn primary" id="tour-finish">Effacer la démo et commencer</button>`
+      ? `<button class="btn" id="tour-prev">←</button><button class="btn" id="tour-free">Explorer</button><button class="btn primary" id="tour-finish">Commencer avec mes données</button>`
       : `<button class="btn" id="tour-skip">Passer la visite</button>${i > 0 ? '<button class="btn" id="tour-prev">←</button>' : ""}<button class="btn primary" id="tour-next">Suivant →</button>`}</div>`;
   document.body.classList.add("tour-on");
 }
@@ -115,8 +121,9 @@ go = function (screen, fromHistory) { _go(screen, fromHistory); renderDemoChrome
 document.addEventListener("click", (e) => {
   const t = e.target.closest("button"); if (!t) return;
   if (t.id === "demo-start") startDemo();
-  else if (t.id === "demo-skip") go("finances");
-  else if (t.id === "demo-exit" || t.id === "tour-finish") exitDemo(true);
+  else if (t.id === "demo-skip") { startFresh(); go("home"); }
+  else if (t.id === "demo-exit" || t.id === "tour-finish") exitDemo(true, true);
+  else if (t.id === "demo-again") { if (appIsEmpty()) { state = null; startDemo(); } }
   else if (t.id === "tour-next") tourGo(Math.min(TOUR.length - 1, settings.tour + 1));
   else if (t.id === "tour-prev") tourGo(Math.max(0, settings.tour - 1));
   else if (t.id === "tour-skip" || t.id === "tour-free") { delete settings.tour; saveSettings(); renderDemoChrome(); }
