@@ -48,7 +48,7 @@ function astucesHtml(c) {
   const list = ASTUCES[c.type] || [];
   if (!list.length) return "";
   const ai = typeof aiReady === "function" && aiReady();
-  return `<div class="card"><div class="c-title">💡 Situations où ce contrat peut servir</div>
+  return `<div class="card"><div class="c-title">Situations où ce contrat peut servir</div>
     ${list.map(([t, h], k) => `<div class="obj astuce"><div><strong>${esc(t)}</strong><div class="r-sub">${esc(h)}</div></div>
       ${ai && editIdx !== -1 ? `<button class="btn sm" data-astuce="${k}">Vérifier</button>` : ""}</div>`).join("")}
     <p class="muted small">Pistes générales : ce qui s'applique vraiment dépend de ta police${ai ? " — « Vérifier » pose la question à l'assistant sur ton contrat" : " (ajoute ta clé API pour vérifier avec l'assistant)"}.</p></div>`;

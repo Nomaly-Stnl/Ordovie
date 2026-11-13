@@ -24,7 +24,7 @@ function objectifsSection() {
     return `<div class="obj">
       <div class="li-head"><span>${esc(o.nom)}</span><span class="r-sub">${objPct(p)}</span></div>
       ${progBar(p)}
-      <div class="r-sub">${money(a)} / ${money(c)}${o.dateCible ? " · " + esc(o.dateCible) : ""}${fi ? " · 25 × tes dépenses annuelles · hors actifs physiques" : o.localisation ? " · 📍 " + esc(o.localisation) : ""}</div>
+      <div class="r-sub">${money(a)} / ${money(c)}${o.dateCible ? " · " + esc(o.dateCible) : ""}${fi ? " · 25 × tes dépenses annuelles · hors actifs physiques" : o.localisation ? " · " + esc(o.localisation) : ""}</div>
     </div>`;
   }).join("");
   return `<div class="section-title">Objectifs</div>
@@ -63,7 +63,7 @@ function pageObjectifs() {
           <div class="span2"><label class="field">Nom</label><input type="text" class="sm-input" data-wzt="${b}.nom" value="${esc(o.nom)}"></div>
           <div><label class="field">Cible (CHF)</label><input type="text" inputmode="decimal" class="sm-input" data-wz="${b}.cible" value="${esc(o.cible || 0)}"></div>
           <div><label class="field">Échéance</label><input type="text" class="sm-input" data-wzt="${b}.dateCible" value="${esc(o.dateCible || "")}" placeholder="ex. 2027-06"></div>
-          <div class="span2"><label class="field">📍 Emplacement</label><input type="text" class="sm-input" data-wzt="${b}.localisation" value="${esc(o.localisation || "")}" placeholder="ex. compte épargne, enveloppe"></div>
+          <div class="span2"><label class="field">Emplacement</label><input type="text" class="sm-input" data-wzt="${b}.localisation" value="${esc(o.localisation || "")}" placeholder="ex. compte épargne, enveloppe"></div>
         </div><button class="link-btn" data-act="obj-close">Masquer les détails</button>`
       : `<button class="link-btn" data-act="obj-open" data-i="${i}">Détails (cible, échéance, emplacement)</button>`}
     </div>`;
@@ -72,7 +72,7 @@ function pageObjectifs() {
       ${tf("__new.nom", "", "Nom (ex. Voyage Japon)")}
       <div class="tx-grid"><div><label class="field">Cible (CHF)</label><input type="text" inputmode="decimal" class="sm-input" data-wz="__new.cible"></div>
         <div><label class="field">Échéance</label><input type="text" class="sm-input" data-wzt="__new.date" placeholder="ex. 2027-06"></div>
-        <div class="span2"><label class="field">📍 Emplacement</label><input type="text" class="sm-input" data-wzt="__new.loc"></div></div>
+        <div class="span2"><label class="field">Emplacement</label><input type="text" class="sm-input" data-wzt="__new.loc"></div></div>
       <div class="btn-row"><button class="btn primary" data-act="obj-add">Ajouter</button><button class="btn" data-act="cancel-new">Annuler</button></div></div>`
     : `<button class="btn full" data-act="obj-new">+ Nouvel objectif</button>`;
   return `${cards || '<div class="card"><p class="muted">Aucun objectif personnel.</p></div>'}${adder}
@@ -82,7 +82,7 @@ function refreshObjInfo() {
   document.querySelectorAll("[data-oinfo]").forEach((el) => {
     const o = wz.draft.objectifs[Number(el.dataset.oinfo)]; if (!o) return;
     const a = objectifActuel(o), c = Number(o.cible) || 0;
-    el.textContent = fmtCHF(a) + " / " + fmtCHF(c) + " (" + objPct(c > 0 ? a / c : 0) + ")" + (o.dateCible ? " · échéance " + o.dateCible : "") + (o.localisation ? " · 📍 " + o.localisation : "");
+    el.textContent = fmtCHF(a) + " / " + fmtCHF(c) + " (" + objPct(c > 0 ? a / c : 0) + ")" + (o.dateCible ? " · échéance " + o.dateCible : "") + (o.localisation ? " · " + o.localisation : "");
   });
 }
 // Actions propres à l'étape (appelées par le gestionnaire de la clôture).

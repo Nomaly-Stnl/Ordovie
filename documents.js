@@ -122,7 +122,7 @@ function contratDocsHtml() {
   const docs = draftC.docs || [];
   return `<div class="card"><div class="c-title">Documents</div>
     ${docs.map((d, di) => `<div class="doc">
-        <div class="li-head"><span>📄 ${esc(d.nom || "Document")} <span class="tag">${d.files.length} page(s)</span></span>
+        <div class="li-head"><span>${esc(d.nom || "Document")} <span class="tag">${d.files.length} page(s)</span></span>
           <button class="link-btn" data-docdel="${di}">Supprimer</button></div>
         <div class="thumbs" data-thumbs="${di}"></div>
         ${d.transcription ? `<div class="r-sub">✓ Transcrit le ${esc(new Date(d.transcribedAt).toLocaleDateString("fr-CH"))}
@@ -158,12 +158,12 @@ function linkedVaultHtml() {
   const vdocs = admin.documents || [], ids = draftC.linkedDocs || [];
   const linked = ids.map((id) => vdocs.find((d) => d.id === id)).filter(Boolean);
   const free = vdocs.filter((d) => !ids.includes(d.id));
-  return `${linked.map((d) => `<div class="doc"><div class="li-head"><span>🗂️ ${esc(d.nom)} <span class="tag">coffre · ${esc(d.categorie)}</span></span>
+  return `${linked.map((d) => `<div class="doc"><div class="li-head"><span>${esc(d.nom)} <span class="tag">coffre · ${esc(d.categorie)}</span></span>
       <button class="link-btn" data-unlinkv="${esc(d.id)}">Délier</button></div>
       <div class="r-sub">${d.files.length} page(s)${d.transcription ? " · transcrit, lu par l'assistant" : " · pas encore transcrit (Documents → ce document → Transcrire)"}</div></div>`).join("")}
-    ${pickVault ? `<div class="pick">${free.length ? free.map((d) => `<button class="result" data-linkv="${esc(d.id)}">🗂️ <strong>${esc(d.nom)}</strong> <span class="tag">${esc(d.categorie)}</span></button>`).join("")
+    ${pickVault ? `<div class="pick">${free.length ? free.map((d) => `<button class="result" data-linkv="${esc(d.id)}"><strong>${esc(d.nom)}</strong> <span class="tag">${esc(d.categorie)}</span></button>`).join("")
         : '<p class="muted small">Aucun autre document dans le coffre.</p>'}<button class="btn sm" data-linkv-cancel="1">Fermer</button></div>`
-      : vdocs.length ? `<button class="btn full" data-linkv-open="1">🗂️ Lier un document du coffre</button>` : ""}`;
+      : vdocs.length ? `<button class="btn full" data-linkv-open="1">${ic("link")}Lier un document du coffre</button>` : ""}`;
 }
 function persistLinks() { admin.contrats[editIdx].linkedDocs = (draftC.linkedDocs || []).slice(); saveAdmin(); }
 $("#screen").addEventListener("click", (e) => {

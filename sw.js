@@ -1,6 +1,6 @@
 // Ordovie — service worker : fonctionnement hors ligne + mises à jour.
 // Changer VERSION à chaque publication : le téléphone détecte alors la nouvelle version.
-const VERSION = "0.30.0";
+const VERSION = "0.31.0";
 const CACHE = "ordovie-" + VERSION;
 const FILES = ["./", "./index.html", "./app.js", "./finance-core.js", "./cloture.js", "./tickers.js", "./security.js", "./gerer.js", "./objectifs.js", "./historique.js", "./contrats.js", "./documents.js", "./assistant.js", "./analyses.js", "./portefeuille.js", "./explorer.js", "./coffre.js", "./impots.js", "./rappels.js", "./astuces.js", "./demo-data.js", "./demo.js", "./styles.css", "./manifest.json",
                "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];

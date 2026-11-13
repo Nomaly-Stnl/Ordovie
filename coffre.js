@@ -46,7 +46,7 @@ function renderDocuments() {
   const cats = [...DOC_CATS, "Contrat", "Archives"].filter((c) => counts[c]);
   $("#screen").innerHTML = `
     <input type="search" class="big-input" id="doc-q" placeholder="Rechercher (nom, contenu…)" value="${esc(docQuery)}" autocomplete="off">
-    ${cats.length ? `<div class="chips">${["", ...cats].map((c) => `<button class="chip ${c === docCat ? "on" : ""}" data-dcat="${esc(c)}">${c ? DOC_ICONS[c] + " " + esc(c) + " " + counts[c] : "Tout"}</button>`).join("")}</div>` : ""}
+    ${cats.length ? `<div class="chips">${["", ...cats].map((c) => `<button class="chip ${c === docCat ? "on" : ""}" data-dcat="${esc(c)}">${c ? esc(c) + " " + counts[c] : "Tout"}</button>`).join("")}</div>` : ""}
     <div id="doc-list">${docListHtml(items)}</div>
     <p class="muted small">Les documents restent sur ce téléphone et sont inclus dans ta sauvegarde chiffrée. Ceux joints à un contrat apparaissent ici avec l'étiquette « Contrat ».</p>`;
 }
@@ -56,7 +56,7 @@ function docListHtml(items) {
   return items.sort((a, b) => (a.cat > b.cat ? 1 : a.cat < b.cat ? -1 : 0) || docYear(b.d) - docYear(a.d) || String(a.d.nom).localeCompare(String(b.d.nom))).map((x) => {
     const e = x.src === "vault" ? docExpiry(x.d) : null, n = e ? daysUntil(e) : null;
     return `<button class="card doc-row" ${x.src === "vault" ? `data-vdoc="${x.i}"` : `data-cdoc="${x.ci}"`}>
-      <span class="doc-ic">${DOC_ICONS[x.cat] || "📄"}</span>
+      <span class="doc-ic">${ic("doc", 20)}</span>
       <span class="doc-main"><span class="c-title">${esc(x.d.nom || "Document")}</span>
         <span class="r-sub">${x.src === "contrat" ? "Contrat · " + esc(x.contrat.fournisseur || x.contrat.type) : esc(x.cat)} · ${x.d.files.length} page(s)${x.d.transcription ? " · transcrit" : ""}${x.src === "vault" ? linkedTo(x.d.id) : ""}${x.arch ? ' · <span class="tag">archivé</span>' : ""}</span>
         ${e ? `<span class="r-sub ${n < 0 ? "neg" : n <= 30 ? "neg" : n <= 90 ? "gold" : ""}">${n < 0 ? "Expiré le " : "Expire le "}${fmtDate(x.d.expire)}</span>` : ""}</span>

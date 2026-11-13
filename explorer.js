@@ -54,8 +54,8 @@ function renderExplorerTab() {
         <div class="r-sub">${esc(i.name)}${i.type === "etf" && i.ter != null ? " · TER " + i.ter + " %" : ""}</div>
         ${exSector || exRegion ? `<div class="bar" style="margin:8px 0 4px;"><span style="width:${Math.round(score * 100)}%"></span></div>
           <div class="r-sub">Exposition : <strong>${Math.round(score * 100)} %</strong> ${esc([exSector && (SEC_LABELS[exSector] || exSector), exRegion && (REG_LABELS[exRegion] || exRegion)].filter(Boolean).join(" × "))}</div>` : ""}
-        <div class="r-sub">🌍 ${esc(topShares(distOf(i, "geo"), REG_LABELS, 2))}</div>
-        <div class="r-sub">🏭 ${esc(topShares(i.sectors, SEC_LABELS, 3))}</div>
+        <div class="r-sub">Régions : ${esc(topShares(distOf(i, "geo"), REG_LABELS, 2))}</div>
+        <div class="r-sub">Secteurs : ${esc(topShares(i.sectors, SEC_LABELS, 3))}</div>
       </div>`;
     }).join("") || '<div class="card"><p class="muted">Aucun titre pour ces critères.</p></div>'}
     <p class="muted small">Base Neon Invest (269 actions, 105 ETF). « Estimé » : composition déduite du thème de l'ETF, pas d'une liste officielle. Vérifie toujours la fiche du produit avant d'acheter.</p>`;

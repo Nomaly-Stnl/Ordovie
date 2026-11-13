@@ -60,10 +60,10 @@ function renderRappels() {
         <div class="r-sub">${r.fait ? "✓ fait" : d ? (n < 0 ? "en retard · " : n === 0 ? "aujourd'hui · " : "dans " + n + " j · ") + fmtDate(r.date) : "sans date"}${r.notes ? " · " + esc(r.notes) : ""}</div>
         <div class="btn-row">
           ${!r.fait ? `<button class="btn sm" data-rdone="${i}">✓ Fait</button>` : `<button class="btn sm" data-rundo="${i}">Rétablir</button>`}
-          ${d && !r.fait ? `<a class="btn sm" href="${gcalLink(r.titre, r.date, r.notes, r.repete)}" target="_blank" rel="noopener">📅 Agenda</a>` : ""}
+          ${d && !r.fait ? `<a class="btn sm" href="${gcalLink(r.titre, r.date, r.notes, r.repete)}" target="_blank" rel="noopener">${ic("calendar", 15)}Agenda</a>` : ""}
           <button class="link-btn" data-redit="${i}">Modifier</button>
         </div></div>`; }).join("") || (rEdit ? "" : '<div class="card"><p class="muted">Aucun rappel. Ajoute ceux que rien d\'autre dans l\'app ne connaît : expertise, vignette, pneus, versement 3a…</p></div>')}
-    <p class="muted small">Les rappels apparaissent dans « À traiter » sur l'accueil quelques jours avant. Pour une vraie notification sur ton téléphone, touche <strong>📅 Agenda</strong> : le rappel s'ajoute à Google Agenda, qui te préviendra.</p>`;
+    <p class="muted small">Les rappels apparaissent dans « À traiter » sur l'accueil quelques jours avant. Pour une vraie notification sur ton téléphone, touche <strong>Agenda</strong> : le rappel s'ajoute à Google Agenda, qui te préviendra.</p>`;
 }
 function rappelForm() {
   const r = rEdit;

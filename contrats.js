@@ -69,7 +69,7 @@ function renderContrats() {
   const list = admin.contrats.map((c, i) => ({ c, i, dl: deadline(c) }))
     .sort((a, b) => { const k = (x) => (x.dl && daysUntil(x.dl) >= 0 ? x.dl.getTime() : Infinity); return k(a) - k(b); });
   $("#screen").innerHTML = `
-    ${admin.contrats.length && typeof aiReady === "function" && aiReady() ? `<button class="btn full" id="btn-analyse-contrats">🔍 Analyser mes contrats : oublis, doublons, économies</button>` : ""}
+    ${admin.contrats.length && typeof aiReady === "function" && aiReady() ? `<button class="btn full" id="btn-analyse-contrats">${ic("search")}Analyser mes contrats : oublis, doublons, économies</button>` : ""}
     <div class="summary"><div class="label">Primes et abonnements</div>
       <div class="big">${fmtCHF(totalPrimesMensuelles())}<span class="per"> / mois</span></div>
       <div class="delta muted">${admin.contrats.length} contrat(s) · ${fmtCHF(totalPrimesMensuelles() * 12)} par an</div></div>
@@ -124,10 +124,10 @@ function renderContratEdit() {
         <div><label class="field">Renouvellement</label><select class="sm-input" data-c="tacite"><option value="1" ${c.tacite !== false ? "selected" : ""}>tacite, chaque année</option><option value="0" ${c.tacite === false ? "selected" : ""}>non (prend fin)</option></select></div>
       </div>
       <p class="muted small" id="c-dl">${dlText(c)}</p>
-      ${dl && daysUntil(dl) >= 0 && c.tacite !== false && typeof gcalLink === "function" ? `<a class="btn full" href="${gcalLink((c.fournisseur || c.type) + " : décider (renouvellement le " + fmtDate(iso(nextEcheance(c))) + ")", iso(dl), "Dernier jour pour que la lettre de résiliation soit reçue, si tu veux changer. Envoi en recommandé ~10 jours avant.", "annuelle")}" target="_blank" rel="noopener">📅 Ajouter la date limite à mon agenda</a>` : ""}
+      ${dl && daysUntil(dl) >= 0 && c.tacite !== false && typeof gcalLink === "function" ? `<a class="btn full" href="${gcalLink((c.fournisseur || c.type) + " : décider (renouvellement le " + fmtDate(iso(nextEcheance(c))) + ")", iso(dl), "Dernier jour pour que la lettre de résiliation soit reçue, si tu veux changer. Envoi en recommandé ~10 jours avant.", "annuelle")}" target="_blank" rel="noopener">${ic("calendar")}Ajouter la date limite à mon agenda</a>` : ""}
       <p class="muted small">Où trouver ces infos : sur ta police ou tes conditions générales, rubrique « durée » ou « résiliation ».</p>
     </div>
-    ${editIdx !== -1 && typeof aiReady === "function" && aiReady() ? `<button class="btn full" id="btn-ask-contrat">💬 Une question sur ce contrat ?</button>` : ""}
+    ${editIdx !== -1 && typeof aiReady === "function" && aiReady() ? `<button class="btn full" id="btn-ask-contrat">${ic("chat")}Une question sur ce contrat ?</button>` : ""}
     ${typeof astucesHtml === "function" ? astucesHtml(c) : ""}
     ${typeof contratDocsHtml === "function" ? contratDocsHtml() : ""}
     <div class="card"><label class="field">Notes</label><textarea class="sm-input" rows="3" data-c="notes">${esc(c.notes || "")}</textarea></div>

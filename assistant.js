@@ -116,7 +116,7 @@ async function sendChat(text) {
     const r = await callClaude({ max_tokens: 4000, system: systemPrompt(), messages: convo });
     list.push({ role: "assistant", content: r.text || "(réponse vide)", scope, at: new Date().toISOString() });
   } catch (err) {
-    list.push({ role: "assistant", content: "⚠️ Erreur : " + err.message, scope, at: new Date().toISOString(), error: true });
+    list.push({ role: "assistant", content: "Erreur : " + err.message, scope, at: new Date().toISOString(), error: true });
   }
   if (list.length > 200) list.splice(0, list.length - 200);
   chatBusy = false; saveAdmin();

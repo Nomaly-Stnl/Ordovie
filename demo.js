@@ -67,18 +67,23 @@ async function exitDemo(confirmFirst, fresh) {
 const _renderHome = renderHome;
 renderHome = function () {
   if (showWelcome()) {
-    setTitle("", true); setBottomBar("");
+    setTitle(""); setBottomBar(""); // pas de logo en haut : il est déjà au centre
     $("#screen").innerHTML = `
       <div class="welcome">
         <img src="icons/icon-192.png" alt="" class="welcome-logo">
-        <h1>Bienvenue dans Ordovie</h1>
-        <p class="muted">Tes finances, contrats, documents et impôts, au même endroit. Tout reste sur ton téléphone.</p>
+        <h1>Ordovie</h1>
+        <p class="welcome-tag">Ta vie administrative, en ordre.</p>
       </div>
-      <button class="card choice" id="demo-start"><span class="choice-ic">🎭</span><span><strong>Découvrir avec Alex</strong>
-        <span class="r-sub">Une visite guidée avec des données fictives. À la fin, tout est effacé et tu commences avec les tiennes.</span></span></button>
-      <button class="card choice" id="demo-skip"><span class="choice-ic">🚀</span><span><strong>Commencer avec mes données</strong>
-        <span class="r-sub">Une courte liste « Premiers pas » te guide, étape par étape.</span></span></button>
-      <p class="muted small" style="text-align:center;">Tu as une sauvegarde Ordovie ? Roue ⚙️ → Restaurer / importer.</p>`;
+      <ul class="values">
+        <li>${ic("chart", 20)}<span><strong>Patrimoine suivi</strong>Une clôture par mois, et tu vois où va ton argent.</span></li>
+        <li>${ic("shield", 20)}<span><strong>Contrats compris</strong>Ce qui est couvert, et quand décider de changer.</span></li>
+        <li>${ic("doc", 20)}<span><strong>Papiers rangés</strong>Tes documents au même endroit, sur ton téléphone.</span></li>
+      </ul>
+      <div class="welcome-actions">
+        <button class="btn primary full" id="demo-skip">Commencer</button>
+        <button class="btn full ghost" id="demo-start">${ic("play")}Voir la démo · 2 min</button>
+        <p class="muted small">Tes données restent sur ce téléphone. Déjà une sauvegarde ? Paramètres → Restaurer.</p>
+      </div>`;
     return;
   }
   _renderHome();
@@ -91,7 +96,7 @@ const TOUR = [
   { s: "contrats", t: "Contrats : plus d'oubli", x: "L'app calcule la date limite pour résilier et te prévient à temps. Plus de renouvellement subi." },
   { s: "assistant", t: "Tes contrats, enfin compris", x: "Photographie une police, l'IA la lit. Pose ta question : elle répond en citant l'article. Ici, vélo volé : couvert ?" },
   { s: "documents", t: "Documents : ton coffre-fort", x: "Tous tes papiers au même endroit, sur ton téléphone. L'app prévient avant une expiration." },
-  { s: "rappels", t: "Rappels dans ton agenda", x: "Pas de notification en plus : « 📅 Agenda » envoie le rappel directement dans ton agenda personnel.", end: true },
+  { s: "rappels", t: "Rappels dans ton agenda", x: "Pas de notification en plus : « Agenda » envoie le rappel directement dans ton agenda personnel.", end: true },
 ];
 function tourGo(i) {
   const st = TOUR[i]; settings.tour = i; saveSettings();
@@ -103,7 +108,7 @@ function renderDemoChrome() {
   let b = document.getElementById("demo-banner"), c = document.getElementById("tour-card");
   if (!inDemo()) { if (b) b.remove(); if (c) c.remove(); document.body.classList.remove("demo-on", "tour-on"); return; }
   if (!b) { b = document.createElement("div"); b.id = "demo-banner"; document.body.appendChild(b); }
-  b.innerHTML = `🎭 Démo : données fictives d'Alex <button id="demo-exit">Quitter la démo</button>`;
+  b.innerHTML = `<span><strong>Démo</strong> · données fictives d'Alex</span><button id="demo-exit">Quitter</button>`;
   document.body.classList.add("demo-on");
   const i = settings.tour;
   if (typeof i !== "number" || !TOUR[i]) { if (c) c.remove(); document.body.classList.remove("tour-on"); return; }

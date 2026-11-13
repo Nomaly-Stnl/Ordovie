@@ -45,7 +45,7 @@ const DEDUCTIONS = [
 
 let taxTab = "declaration";
 function renderImpots() {
-  setTitle("Impôts"); setBottomBar(aiReady() ? '<button class="btn primary btn-main" id="btn-ask-tax">💬 Préparer ma déclaration avec l\'assistant</button>' : "");
+  setTitle("Impôts"); setBottomBar(aiReady() ? '<button class="btn primary btn-main" id="btn-ask-tax">' + ic("chat") + 'Préparer ma déclaration avec l\'assistant</button>' : "");
   if (!state) { $("#screen").innerHTML = '<div class="card"><p class="muted">Importe d\'abord tes données.</p></div>'; return; }
   const tabs = `<div class="tabs">${[["declaration", "Déclaration"], ["simulation", "Simulation"]].map(([k, l]) => `<button class="tab ${k === taxTab ? "on" : ""}" data-taxtab="${k}">${l}</button>`).join("")}</div>`;
   $("#screen").innerHTML = tabs + (taxTab === "simulation" ? taxSimulation() : taxDeclaration());

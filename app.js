@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.30.0"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.31.0"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -50,6 +50,23 @@ function previousCalendarMonth() {
 }
 
 /* ---------- modules ---------- */
+// Icônes au trait, monochromes (remplacent les emojis : rendu net et cohérent sur tous les téléphones).
+const IC_PATHS = {
+  calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  chat: '<path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.1A8 8 0 1 1 20 12z"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+  bell: '<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  play: '<circle cx="12" cy="12" r="8.5"/><path d="M10.5 9l4.5 3-4.5 3z"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+  chart: '<path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+};
+function ic(n, size) { const s = size || 17; return `<svg class="ic" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC_PATHS[n] || ""}</svg>`; }
+
 const ICONS = {
   finances: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 16v-5"/><path d="M11 16V8"/><path d="M16 16v-3"/><path d="M21 16V5"/></svg>',
   contrats: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 10h16"/></svg>',
@@ -128,7 +145,7 @@ function onboardHtml() {
       ${st.map((s) => `<button class="ob-step ${s.ok ? "ok" : ""} ${s === next ? "next" : ""}" data-ob="${s.go}" data-obk="${s.k}">
         <span class="ob-chk">${s.ok ? "✓" : ""}</span><span><strong>${esc(s.t)}</strong>${s.ok ? "" : `<span class="r-sub">${esc(s.h)}</span>`}</span></button>`).join("")}
       <div class="ob-foot">
-        ${typeof appIsEmpty === "function" && appIsEmpty() ? '<button class="link-btn" id="demo-again">🎭 Revoir la démo</button>' : "<span></span>"}
+        ${typeof appIsEmpty === "function" && appIsEmpty() ? '<button class="link-btn" id="demo-again">Revoir la démo</button>' : "<span></span>"}
         <button class="link-btn" id="ob-hide">${done === req.length ? "Terminé, masquer" : "Masquer"}</button>
       </div>
     </div>`;
@@ -136,7 +153,7 @@ function onboardHtml() {
 
 function renderHome() {
   setTitle("", true);
-  setBottomBar(typeof aiReady === "function" && aiReady() ? '<button class="btn primary btn-main" id="btn-ask">💬 Poser une question</button>' : "");
+  setBottomBar(typeof aiReady === "function" && aiReady() ? '<button class="btn primary btn-main" id="btn-ask">' + ic("chat") + 'Poser une question</button>' : "");
   let summary;
   if (state) {
     const total = patrimoineTotal();
@@ -155,7 +172,7 @@ function renderHome() {
   $("#screen").innerHTML = `
     <div class="summary">${eyeBtn()}${summary}</div>
     ${onboardHtml()}
-    <div class="section-title">À traiter <button class="link-btn legend-link" id="btn-rappels">🔔 Rappels</button></div>
+    <div class="section-title">À traiter <button class="link-btn legend-link" id="btn-rappels">${ic("bell", 15)}Rappels</button></div>
     <div class="todo">
       ${todoItems().map((i) => `<div class="todo-item"><span class="dot ${i.c}"></span>${esc(i.t)}</div>`).join("")}
     </div>
@@ -188,7 +205,7 @@ function renderFinances() {
         <p class="muted">Une fois par mois, tu notes tes soldes, revenus et dépenses. Ordovie en tire ton patrimoine net, ton budget, ton taux d'épargne et leur évolution.</p>
         <p class="muted">La première prend ≈ 10 minutes, les suivantes 5. Rien n'est enregistré avant la validation finale.</p>
         <button class="btn primary full" id="btn-close-month">Faire ma première clôture</button></div>
-      <p class="muted small">Tu as une sauvegarde Ordovie ? Roue ⚙️ → Restaurer / importer.</p>`;
+      <p class="muted small">Tu as une sauvegarde Ordovie ? Paramètres (roue en haut à droite) → Restaurer / importer.</p>`;
     return;
   }
   const actifs = totalActifs();
@@ -422,7 +439,7 @@ $("#screen").addEventListener("click", async (e) => {
   if (t.id === "btn-import") $("#file-import").click();
   else if (t.id === "btn-wipe") {
     const d = daysSince(settings.lastExport);
-    const ok = prompt("Effacer TOUTES les données de l'app ?\n" + (d === null ? "⚠️ Tu n'as jamais fait de sauvegarde chiffrée." : "Dernière sauvegarde : il y a " + d + " jour(s).") + "\n\nTape EFFACER pour confirmer :");
+    const ok = prompt("Effacer TOUTES les données de l'app ?\n" + (d === null ? "Attention : tu n'as jamais fait de sauvegarde chiffrée." : "Dernière sauvegarde : il y a " + d + " jour(s).") + "\n\nTape EFFACER pour confirmer :");
     if (ok !== "EFFACER") { if (ok !== null) alert("Rien n'a été effacé."); return; }
     if (typeof exitDemo === "function") { await exitDemo(false); } // efface finances, contrats, documents (et pages), rappels…
     const full = confirm("Données effacées.\n\nEffacer AUSSI la clé API, le verrouillage (empreinte / mot de passe) et le profil ?\n\nOK = remise à zéro complète (comme une app neuve)\nAnnuler = les garder");
