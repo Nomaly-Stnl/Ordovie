@@ -253,6 +253,7 @@ function persistDocs() { admin.contrats[editIdx].docs = JSON.parse(JSON.stringif
 function renderTranscription(di) {
   const d = draftC.docs[di], t = d.transcription || {};
   setTitle("Transcription"); setBottomBar(`<button class="btn primary btn-main" id="btn-back-contrat">Retour au contrat</button>`);
+  backHandler = () => renderContratEdit();
   const rowsKV = [["Fournisseur", t.fournisseur], ["Type", t.typeContrat], ["N°", t.numero], ["Titulaire", t.titulaire],
     ["Prime", t.prime && t.prime.montant != null ? t.prime.montant + " CHF " + (t.prime.periode || "") : null],
     ["Début", t.debut], ["Échéance", t.echeance], ["Délai de résiliation", t.delaiResiliationMois != null ? t.delaiResiliationMois + " mois" : null]]

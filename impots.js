@@ -6,8 +6,12 @@ function isBerne() { return /^(be|bern|berne)$/i.test(((settings.profil || {}).c
 function imp() { admin.impots = admin.impots || {}; const y = String(Number(state ? state.params.anneeFiscale : new Date().getFullYear())); admin.impots[y] = admin.impots[y] || { delai: "", coche: {} }; return { y, o: admin.impots[y] }; }
 
 // Cherche dans le coffre un document d'une catégorie qui mentionne l'année (nom, notes ou transcription).
+// words : au moins un des mots doit apparaître. Une police d'assurance n'est jamais prise pour une attestation fiscale.
 function findVault(cat, year, words) {
-  return (admin.documents || []).filter((d) => d.categorie === cat).find((d) => {
+  const linked = new Set((admin.contrats || []).flatMap((c) => c.linkedDocs || []));
+  return (admin.documents || []).filter((d) => d.categorie === cat && !d.archived && !linked.has(d.id)).find((d) => {
+    const t = d.transcription || {};
+    if (/police|conditions générales|\bcga\b/i.test([d.nom, t.type, t.titre].filter(Boolean).join(" "))) return false;
     const txt = [d.nom, d.notes, d.transcription && JSON.stringify(d.transcription)].filter(Boolean).join(" ").toLowerCase();
     return txt.includes(String(year)) && (!words || words.some((w) => txt.includes(w)));
   });
@@ -21,8 +25,8 @@ function piecesList(year) {
   if (totalETF() > 0) L.push({ k: "titres", t: "Relevé fiscal des titres (ETF / actions)", h: "Demande à ta banque ou à Neon le relevé fiscal annuel : valeur au 31.12 et dividendes, à reporter dans l'état des titres.", f: findVault("Banque", year, ["titre", "fiscal", "neon"]) });
   if (totalCrypto() > 0) L.push({ k: "crypto", t: "Cryptos : quantités et valeur au 31.12", h: "La crypto fait partie de la fortune. Les cours de fin d'année publiés par l'Administration fédérale des contributions servent de référence.", f: null });
   const assur = (admin.contrats || []).filter((c) => /LAMal|LCA|Complémentaire/i.test(c.type || ""));
-  L.push({ k: "lamal", t: "Attestation des primes d'assurance maladie", h: assur.length ? "Tes caisses : " + assur.map((c) => c.fournisseur || c.type).join(", ") + "." : "Délivrée par ta caisse maladie (LAMal et complémentaires).", f: findVault("Santé", year, ["prime", "attestation"]) || findVault("Impôts", year, ["prime"]) });
-  L.push({ k: "frais-med", t: "Frais médicaux non remboursés", h: "Franchise, quote-part, dentiste, lunettes… Déductibles au-delà d'un seuil lié à ton revenu : garde les décomptes.", f: findVault("Santé", year) });
+  L.push({ k: "lamal", t: "Attestation des primes d'assurance maladie", h: assur.length ? "Tes caisses : " + assur.map((c) => c.fournisseur || c.type).join(", ") + "." : "Délivrée par ta caisse maladie (LAMal et complémentaires).", f: findVault("Santé", year, ["attestation fiscale", "attestation de prime", "attestation des primes", "steuerbescheinigung"]) || findVault("Impôts", year, ["prime"]) });
+  L.push({ k: "frais-med", t: "Frais médicaux non remboursés", h: "Franchise, quote-part, dentiste, lunettes… Déductibles au-delà d'un seuil lié à ton revenu : garde les décomptes.", f: findVault("Santé", year, ["décompte", "decompte", "facture", "quote-part", "franchise", "remboursement"]) });
   if ((state.dettes || []).length) L.push({ k: "dettes", t: "Attestation des dettes et intérêts payés", h: "Pour chaque prêt / hypothèque : solde au 31.12 et intérêts de l'année.", f: null });
   L.push({ k: "dons", t: "Reçus de dons", h: "Dons à des organisations d'utilité publique reconnues : déductibles à partir d'un montant minimum.", f: findVault("Impôts", year, ["don"]) });
   L.push({ k: "taxation", t: `Dernier avis de taxation (${year - 1})`, h: "Utile pour reprendre les montants et vérifier les acomptes.", f: findVault("Impôts", year - 1, ["taxation", "veranlagung"]) });
@@ -52,7 +56,8 @@ function renderImpots() {
 }
 function taxDeclaration() {
   const { y, o } = imp(), year = Number(y), p = state.params;
-  const pieces = piecesList(year), done = pieces.filter((x) => x.f || o.coche[x.k]).length;
+  const ign = o.ignore || {};
+  const pieces = piecesList(year).map((x) => (ign[x.k] && x.f && ign[x.k] === x.f.id ? Object.assign(x, { f: null }) : x)), done = pieces.filter((x) => x.f || o.coche[x.k]).length;
   const dl = o.delai ? parseISO(o.delai) : null, n = dl ? daysUntil(dl) : null;
   const v3a = pilier3aVerseCetteAnnee(), eco = v3a * (Number(p.tauxMarginal) || 0);
   const interets = typeof totalInteretsAnnuelsDettes === "function" ? totalInteretsAnnuelsDettes() : 0;
@@ -73,7 +78,7 @@ function taxDeclaration() {
     <div class="card">${pieces.map((x) => `<div class="obj tax-item">
         <label class="tax-chk"><input type="checkbox" data-taxk="${esc(x.k)}" ${x.f || o.coche[x.k] ? "checked" : ""} ${x.f ? "disabled" : ""}>
           <span><span class="${x.f || o.coche[x.k] ? "done" : ""}">${esc(x.t)}</span>
-          ${x.f ? `<span class="r-sub pos">✓ dans ton coffre : ${esc(x.f.nom)}</span>` : `<span class="r-sub">${esc(x.h)}</span>`}</span></label>
+          ${x.f ? `<span class="r-sub pos">✓ dans ton coffre : ${esc(x.f.nom)} · <button class="link-btn" data-taxign="${esc(x.k)}" data-doc="${esc(x.f.id)}">pas le bon document</button></span>` : `<span class="r-sub">${esc(x.h)}</span>`}</span></label>
       </div>`).join("")}
       <p class="muted small">Une pièce est cochée automatiquement si un document de la bonne catégorie, mentionnant ${year}, est dans ton coffre (Documents).</p></div>
 
@@ -170,6 +175,8 @@ $("#screen").addEventListener("change", (e) => {
   const v = e.target.value.trim(); taxSim()[e.target.dataset.sim] = v === "" ? "" : parseNum(v); saveAdmin(); renderImpots();
 });
 $("#screen").addEventListener("click", (e) => {
+  const g = e.target.closest("[data-taxign]");
+  if (g && current === "impots") { e.preventDefault(); const { o } = imp(); (o.ignore = o.ignore || {})[g.dataset.taxign] = g.dataset.doc; saveAdmin(); renderImpots(); return; }
   const t = e.target.closest("[data-taxtab]"); if (!t || current !== "impots") return;
   taxTab = t.dataset.taxtab; renderImpots();
 });

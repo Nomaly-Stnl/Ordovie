@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.33.0"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.34.0"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -380,19 +380,23 @@ function exportFile() {
 
 /* ---------- navigation ---------- */
 let current = "home";
-// Bouton « retour » d'Android : chaque écran est une entrée d'historique ; retour = écran précédent.
-// Sur l'accueil, retour quitte l'app (comportement normal).
+// Bouton « retour » d'Android : l'app tient sa propre pile d'écrans (navStack) et garde UNE entrée
+// « garde » dans l'historique du navigateur. Retour = écran précédent de la pile ; seul l'accueil quitte l'app.
+let navStack = [];
+let backHandler = null; // sous-vue affichée sans changer d'écran (ex. transcription) : son propre retour
 function go(screen, fromHistory) {
   if (current === "cloture" && screen !== "cloture" && wz) {
-    if (!confirm("Abandonner la clôture en cours ? Rien n'a été enregistré.")) {
-      if (fromHistory) history.pushState({ screen: current }, ""); // on reste sur la clôture
-      return;
-    }
+    if (!confirm("Abandonner la clôture en cours ? Rien n'a été enregistré.")) return;
     wz = null;
   }
+  backHandler = null;
   if (!fromHistory && screen !== current) {
-    if (screen === "home") history.replaceState({ screen: "home" }, "");
-    else history.pushState({ screen }, "");
+    if (screen === "home") navStack = [];
+    else {
+      const k = navStack.indexOf(screen);
+      if (k >= 0) navStack = navStack.slice(0, k); // revenir à un écran déjà ouvert : on coupe la pile (pas de boucle)
+      else navStack.push(current);
+    }
   }
   current = screen;
   // Mode discret : neutralise aussi les couleurs (vert/rouge trahissent un gain ou une perte).
@@ -417,10 +421,21 @@ function go(screen, fromHistory) {
 
 // Écouteurs posés UNE seule fois sur des éléments persistants (délégation) : pas d'empilement.
 $("#btn-home").addEventListener("click", () => go("home"));
-history.replaceState({ screen: "home" }, "");
-window.addEventListener("popstate", (e) => {
-  if (document.body.classList.contains("is-locked")) { history.pushState({ screen: current }, ""); return; }
-  go((e.state && e.state.screen) || "home", true);
+history.replaceState({ ordovie: "base" }, "");
+history.pushState({ ordovie: "garde" }, "");
+function goBack() {
+  if (backHandler) { const h = backHandler; backHandler = null; h(); return; }
+  if (current === "cloture" && wz && wz.i > 0) { wzGo(-1); return; } // clôture : étape précédente
+  const target = navStack.pop() || "home";
+  const before = current;
+  go(target, true);
+  if (current === before && before !== target) navStack.push(target); // retour refusé (ex. clôture conservée)
+}
+window.addEventListener("popstate", () => {
+  if (document.body.classList.contains("is-locked")) { history.pushState({ ordovie: "garde" }, ""); return; }
+  if (current === "home" && !backHandler) { history.back(); return; } // accueil : on quitte vraiment l'app
+  history.pushState({ ordovie: "garde" }, ""); // on réarme la garde avant de naviguer
+  goBack();
 });
 $("#btn-settings").addEventListener("click", () => go("settings"));
 $("#bottombar").addEventListener("click", (e) => {
