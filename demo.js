@@ -80,16 +80,12 @@ renderHome = function () {
 
 /* ---------- visite guidée ---------- */
 const TOUR = [
-  { s: "home", t: "Bienvenue chez Alex 👋", x: "En haut, son patrimoine net (tout ce qu'il possède moins ses dettes). L'œil masque les montants. Dessous, « À traiter » : contrats à résilier, documents qui expirent, rappels. C'est l'écran à regarder chaque jour." },
-  { s: "finances", t: "Finances", x: "Sa répartition comparée à ses cibles (trait blanc), son budget, l'évolution de son patrimoine, ses objectifs et ses projets. Tout vient de ses clôtures mensuelles." },
-  { s: "finances", t: "Une clôture par mois", x: "Le geste clé : chaque début de mois, « Clôturer le mois ». L'app guide écran par écran (revenus, comptes, dépenses, investissements…) et rien n'est enregistré avant la validation. Tu peux l'essayer, c'est de la démo." },
-  { s: "contrats", t: "Contrats", x: "Tous ses contrats, triés par urgence : l'app calcule la date limite pour résilier et le prévient. « 📅 » l'ajoute à l'agenda. « 🔍 Analyser » demande à l'IA de chercher doublons, oublis et économies (clé API requise)." },
-  { s: "contrat-lamal", t: "Une police transcrite", x: "Sa police maladie a été photographiée puis transcrite par l'IA. Les « 💡 Situations » listent des cas concrets où le contrat peut servir, et « Vérifier » pose la question sur sa vraie police." },
-  { s: "assistant", t: "L'assistant", x: "On lui pose n'importe quelle question : il connaît les finances, contrats et documents. Ici, Alex a demandé si son vélo volé était couvert : la réponse cite l'article de sa police." },
-  { s: "analyses", t: "Analyses", x: "L'évolution mois par mois, une projection de son patrimoine à 10-20 ans, son portefeuille d'ETF par région et secteur, et un explorateur pour trouver des ETF." },
-  { s: "documents", t: "Documents", x: "Son coffre-fort : pièce d'identité, certificats, polices… L'app prévient avant une expiration, la recherche lit le contenu, et les anciennes versions vont aux archives." },
-  { s: "impots", t: "Impôts", x: "Les pièces à rassembler (cochées si elles sont dans le coffre), les déductions à vérifier, et l'onglet Simulation qui estime ses impôts de l'année." },
-  { s: "home", t: "À toi de jouer !", x: "Il reste les 🔔 Rappels (sur l'accueil) et la ⚙️ roue : verrouillage par empreinte et sauvegarde chiffrée, à faire chaque mois. Explore la démo librement, puis lance-toi.", end: true },
+  { s: "home", t: "Tout en un coup d'œil", x: "En haut, le patrimoine net d'Alex. Dessous, « À traiter » : uniquement ce qui demande une action." },
+  { s: "finances", t: "Finances : suivre son patrimoine", x: "Une clôture par mois, environ 5 minutes. Tu vois où va ton argent et comment ton patrimoine évolue." },
+  { s: "contrats", t: "Contrats : plus d'oubli", x: "L'app calcule la date limite pour résilier et te prévient à temps. Plus de renouvellement subi." },
+  { s: "assistant", t: "Tes contrats, enfin compris", x: "Photographie une police, l'IA la lit. Pose ta question : elle répond en citant l'article. Ici, vélo volé : couvert ?" },
+  { s: "documents", t: "Documents : ton coffre-fort", x: "Tous tes papiers au même endroit, sur ton téléphone. L'app prévient avant une expiration." },
+  { s: "rappels", t: "Rappels dans ton agenda", x: "Pas de notification en plus : « 📅 Agenda » envoie le rappel directement dans ton agenda personnel.", end: true },
 ];
 function tourGo(i) {
   const st = TOUR[i]; settings.tour = i; saveSettings();

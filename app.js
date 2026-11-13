@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.28.1"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.29.0"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -94,7 +94,8 @@ function todoItems() {
   if (typeof taxAlerts === "function") items.push(...taxAlerts());
   if (typeof rappelAlerts === "function") items.push(...rappelAlerts());
   const d = daysSince(settings.lastExport);
-  if (d === null) items.push({ c: "red", t: "Aucune sauvegarde chiffrée faite (Paramètres)" });
+  if (settings.demo) { /* démo : pas de rappel de sauvegarde (bloquée en démo) */ }
+  else if (d === null) items.push({ c: "red", t: "Aucune sauvegarde chiffrée faite (Paramètres)" });
   else if (d > 30) items.push({ c: "red", t: "Dernière sauvegarde il y a " + d + " jours" });
   if (!items.length) items.push({ c: "green", t: "Rien d'urgent" });
   return items;
