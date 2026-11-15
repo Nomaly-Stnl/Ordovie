@@ -89,9 +89,10 @@ function renderDocEdit() {
       <div class="c-title">Pages</div>
       <div class="thumbs" id="v-thumbs"></div>
       <label class="btn full file-btn">+ Photos ou PDF<input type="file" id="v-input" accept="image/*,application/pdf" multiple hidden></label>
-      ${d.files.length ? (vBusy ? '<p class="muted small">Transcription en cours…</p>'
-        : aiReady() ? `<button class="btn full" id="v-tr">${t ? "Retranscrire" : "Transcrire avec Claude"}</button>` : '<p class="muted small">Ajoute ta clé API (Paramètres) pour transcrire et interroger ce document.</p>') : ""}
+      ${d.files.length ? (vBusy ? '<p class="muted small">Lecture du document par l\'IA… (jusqu\'à une minute)</p><div class="spinner"></div>'
+        : aiReady() ? `<button class="btn full" id="v-tr">${t ? "Retranscrire" : "Transcrire avec Claude"}</button>` : '<p class="muted small">Ajoute ta clé API (Paramètres) pour que l\'IA lise ce document et puisse s\'en servir.</p>') : ""}
     </div>
+    ${!vBusy && (d.trWarn || d.truncated) ? trHelpHtml(d.trWarn, d.truncated) : ""}
     ${t ? `<div class="card"><div class="c-title">${esc(t.titre || "Transcription")}</div>
       ${[["Type", t.type], ["Émetteur", t.emetteur], ["Titulaire", t.titulaire], ["N°", t.numero], ["Émis le", t.dateEmission], ["Expire le", t.dateExpiration]]
         .filter(([, v]) => v).map(([k, v]) => `<div class="row kv"><div class="r-name">${esc(k)}</div><div class="r-val">${esc(v)}</div></div>`).join("")}
@@ -112,15 +113,16 @@ async function fillVaultThumbs() {
   for (const fid of vEdit.files) {
     const f = await getFile(fid).catch(() => null); if (!f) continue;
     const url = URL.createObjectURL(f.blob);
-    el.insertAdjacentHTML("beforeend", f.type === "application/pdf" ? `<a class="thumb pdf" href="${url}" target="_blank" rel="noopener">PDF</a>`
-      : `<a class="thumb" href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="page"></a>`);
+    el.insertAdjacentHTML("beforeend", `<span class="thumb-wrap">${f.type === "application/pdf" ? `<a class="thumb pdf" href="${url}" target="_blank" rel="noopener">PDF ↗</a>`
+      : `<a class="thumb" href="${url}"><img src="${url}" alt="page"></a>`}<button class="thumb-del" data-vrmpage="${esc(fid)}" aria-label="Retirer la page">×</button></span>`);
   }
 }
 
 const GENERIC_PROMPT = `Tu reçois les pages d'un document administratif suisse (pièce d'identité, certificat de salaire, attestation, facture, avis d'impôt…).
 Transcris-le FIDÈLEMENT en JSON, sans rien inventer (null si absent). Réponds UNIQUEMENT avec un objet JSON valide :
 {"titre":"...","type":"...","emetteur":"...","titulaire":"...","numero":"...","dateEmission":"AAAA-MM-JJ ou null","dateExpiration":"AAAA-MM-JJ ou null",
- "montants":[{"libelle":"...","montant":"..."}],"resume":"2-3 phrases utiles : à quoi sert ce document, chiffres clés","texte":"texte intégral"}`;
+ "montants":[{"libelle":"...","montant":"..."}],"resume":"2-3 phrases utiles : à quoi sert ce document, chiffres clés","texte":"texte intégral",
+ "remarques":"pages illisibles, floues ou coupées, informations douteuses ; null si tout est lisible"}`;
 async function transcribeVault(d) {
   const blocks = [];
   for (const fid of d.files) {
@@ -132,6 +134,25 @@ async function transcribeVault(d) {
   blocks.push({ type: "text", text: GENERIC_PROMPT });
   const r = await callClaude({ max_tokens: 16000, messages: [{ role: "user", content: blocks }] });
   return { json: extractJSON(r.text), truncated: r.stop === "max_tokens" };
+}
+
+// Transcription du coffre : lancée automatiquement à l'ajout de pages (si clé API), ou via « Retranscrire ».
+async function runVaultTranscription() {
+  if (!vEdit || vBusy || !vEdit.files.length || !aiReady()) return;
+  const d = vEdit; vBusy = true; renderDocEdit();
+  try {
+    const r = await transcribeVault(d);
+    d.transcription = r.json; d.truncated = r.truncated; d.transcribedAt = new Date().toISOString();
+    d.trWarn = r.truncated ? "" : trWeak(r.json, "doc");
+    if (!d.nom || /^(IMG|PXL|Screenshot|scan|document)[-_ ]?\d*/i.test(d.nom)) d.nom = r.json.titre || d.nom;
+    if (!d.expire && /^\d{4}-\d{2}-\d{2}$/.test(r.json.dateExpiration || "")) d.expire = r.json.dateExpiration;
+  } catch (err) { d.trWarn = trErrorText(err); }
+  vBusy = false;
+  // Déjà enregistré (ou enregistré pendant la lecture) : on range aussitôt le résultat.
+  const k = vault().findIndex((x) => x.id === d.id);
+  if (k >= 0) { const keep = vault()[k]; ["transcription", "truncated", "transcribedAt", "trWarn"].forEach((f) => { if (d[f] === undefined) delete keep[f]; else keep[f] = d[f]; });
+    if (keep !== d) { if (!keep.expire && d.expire) keep.expire = d.expire; } saveAdmin(); }
+  if (current === "doc-edit" && vEdit === d) renderDocEdit();
 }
 
 function versionInfo(d) {
@@ -167,7 +188,9 @@ $("#screen").addEventListener("change", async (e) => {
     vEdit.files.push(id);
     if (!vEdit.nom) vEdit.nom = f.name.replace(/\.[^.]+$/, "");
   }
+  delete vEdit.trWarn;
   renderDocEdit();
+  if (aiReady()) runVaultTranscription(); // automatique : l'assistant ne « voit » un document que transcrit
 });
 $("#screen").addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
@@ -178,12 +201,13 @@ $("#screen").addEventListener("click", async (e) => {
     return;
   }
   if (current !== "doc-edit" || !vEdit) return;
-  if (t.id === "v-tr") {
-    if (!confirm("Envoyer ce document (" + vEdit.files.length + " page(s)) à Claude pour transcription ? Quelques centimes sur ta clé API.")) return;
-    vBusy = true; renderDocEdit();
-    try { const r = await transcribeVault(vEdit); vEdit.transcription = r.json; vEdit.truncated = r.truncated; vEdit.transcribedAt = new Date().toISOString(); }
-    catch (err) { alert("Transcription impossible : " + err.message); }
-    vBusy = false; renderDocEdit();
+  if (t.id === "v-tr") runVaultTranscription();
+  else if (t.dataset.vrmpage) {
+    if (!confirm("Retirer cette page du document ?")) return;
+    const fid = t.dataset.vrmpage; vEdit.files = vEdit.files.filter((x) => x !== fid);
+    if (vIsNew) await delFile(fid).catch(() => {}); // page jamais enregistrée ; sinon supprimée à l'enregistrement
+    else (vEdit._rm = vEdit._rm || []).push(fid);
+    renderDocEdit();
   } else if (t.id === "v-apply-exp") { vEdit.expire = vEdit.transcription.dateExpiration; renderDocEdit(); }
   else if (t.id === "btn-new-version") startNewVersion();
   else if (t.id === "btn-archive") { vEdit.archived = !vEdit.archived; vault()[vEdit._i].archived = vEdit.archived; saveAdmin(); renderDocEdit(); }
@@ -205,6 +229,7 @@ $("#bottombar").addEventListener("click", async (e) => {
     if (!String(vEdit.nom || "").trim()) { alert("Donne un nom au document."); return; }
     if (!vEdit.files.length && !confirm("Aucune page ajoutée. Enregistrer quand même (fiche seule) ?")) return;
     const i = vEdit._i; delete vEdit._i;
+    for (const fid of vEdit._rm || []) await delFile(fid).catch(() => {}); delete vEdit._rm;
     if (vIsNew) {
       vault().push(vEdit);
       if (vEdit.prevId) { // l'ancienne version passe en archive ; les contrats liés suivent la nouvelle

@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.34.0"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.35.0"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -133,6 +133,7 @@ function onboardSteps() {
 }
 // Masquée pour un utilisateur déjà installé (≥ 2 clôtures) ou quand tout est fait.
 function onboardVisible() {
+  if (typeof admin === "undefined") return false; // modules pas encore chargés (premier rendu)
   if (!state || settings.onboardDone || settings.demo || Object.keys(state.historique || {}).length >= 2) return false;
   return onboardSteps().some((s) => !s.ok && !s.opt);
 }
@@ -251,6 +252,35 @@ function renderFinances() {
 }
 
 /* ---------- graphique en barres : patrimoine net des 12 dernières clôtures ---------- */
+/* ---------- visionneuse d'images (pages de documents) : reste dans l'app ---------- */
+function openViewer(src) {
+  let v = document.getElementById("viewer");
+  if (!v) { v = document.createElement("div"); v.id = "viewer"; document.body.appendChild(v); }
+  v.innerHTML = `<button class="viewer-close" aria-label="Fermer">×</button><div class="viewer-scroll"><img src="${src}" alt="page"></div>`;
+  v.hidden = false; document.body.classList.add("viewer-on");
+  const prev = backHandler; backHandler = () => { closeViewer(); backHandler = prev; };
+}
+function closeViewer() { const v = document.getElementById("viewer"); if (v) { v.hidden = true; v.innerHTML = ""; } document.body.classList.remove("viewer-on"); }
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a.thumb:not(.pdf)");
+  if (a) { e.preventDefault(); openViewer(a.getAttribute("href")); return; }
+  if (e.target.closest(".viewer-close")) { if (backHandler) { const h = backHandler; backHandler = null; h(); } else closeViewer(); return; }
+  const img = e.target.closest("#viewer img"); if (img) img.classList.toggle("zoom"); // toucher = zoom ×2
+});
+
+// Taille des documents et de la future sauvegarde (base64 ≈ +33 %). Au-delà de ~150 Mo, la sauvegarde
+// (préparée en mémoire d'un bloc) peut échouer sur un téléphone modeste.
+async function fillStorageSize() {
+  const el = document.getElementById("storage-size"); if (!el || typeof allFiles !== "function") return;
+  let n = 0, bytes = 0;
+  try { for (const f of await allFiles()) { n++; bytes += (f.blob && f.blob.size) || 0; } } catch (e) { el.textContent = ""; return; }
+  const mb = (b) => (b / 1048576).toFixed(b < 10485760 ? 1 : 0).replace(".", ",") + " Mo";
+  const backup = bytes * 1.37 + 200000;
+  el.innerHTML = `${n} page(s) de documents · ${mb(bytes)} · sauvegarde chiffrée ≈ <strong>${mb(backup)}</strong>`
+    + (backup > 150 * 1048576 ? `<br><span class="neg">Sauvegarde très lourde : préfère les PDF originaux aux photos, et supprime les doublons ou anciennes versions inutiles.</span>`
+      : backup > 80 * 1048576 ? `<br><span class="gold">Ça grossit : privilégie les PDF originaux, plus légers que les photos.</span>` : "");
+}
+
 function historyChart() {
   const keys = historiqueMonthsSorted().slice(-12);
   if (!keys.length) return '<p class="muted">Aucune clôture pour l\'instant.</p>';
@@ -328,6 +358,7 @@ async function renderSettings() {
       <p class="muted">Stockage persistant : <strong>${persisted === null ? "inconnu" : persisted ? "activé" : "non activé"}</strong>.
       Protège contre un nettoyage automatique du navigateur. Seule une sauvegarde gardée hors du téléphone protège contre la perte du téléphone.</p>
       ${persisted ? "" : '<button class="btn" id="persist">Activer</button>'}
+      <p class="muted small" id="storage-size">Calcul de la taille des documents…</p>
     </div>
 
     <div class="card danger-zone">
@@ -336,6 +367,7 @@ async function renderSettings() {
       <button class="btn danger" id="btn-wipe">Effacer toutes les données…</button>
     </div>
     <div class="version">Ordovie ${esc(APP_VERSION)}</div>`;
+  fillStorageSize();
 }
 
 /* ---------- import / export ---------- */
@@ -389,7 +421,7 @@ function go(screen, fromHistory) {
     if (!confirm("Abandonner la clôture en cours ? Rien n'a été enregistré.")) return;
     wz = null;
   }
-  backHandler = null;
+  backHandler = null; closeViewer();
   if (!fromHistory && screen !== current) {
     if (screen === "home") navStack = [];
     else {
@@ -399,6 +431,8 @@ function go(screen, fromHistory) {
     }
   }
   current = screen;
+  window.scrollTo(0, 0); // avant le rendu : un écran peut ensuite se positionner lui-même (ex. bas du chat)
+  saveNav();
   // Mode discret : neutralise aussi les couleurs (vert/rouge trahissent un gain ou une perte).
   document.body.classList.toggle("masked", !!settings.hideAmounts && MASKED_SCREENS.includes(screen));
   if (screen === "settings") renderSettings();
@@ -416,7 +450,20 @@ function go(screen, fromHistory) {
   else if (screen === "impots") renderImpots();
   else if (screen === "rappels") renderRappels();
   else renderHome();
-  window.scrollTo(0, 0);
+}
+// Android peut fermer l'app en arrière-plan (appareil photo, sélecteur de fichiers). On mémorise l'écran pour
+// la session en cours ; au redémarrage on y revient au lieu de l'accueil (et « retour » ne quitte donc pas l'app).
+const NAV_KEY = "ordovie_nav";
+const NAV_PARENT = { "doc-edit": "documents", "contrat-edit": "contrats", cloture: "finances" }; // écrans qui dépendent d'un brouillon en mémoire
+function saveNav() { try { sessionStorage.setItem(NAV_KEY, JSON.stringify({ s: current, st: navStack })); } catch (e) {} }
+const NAV_AT_START = (() => { try { return JSON.parse(sessionStorage.getItem(NAV_KEY) || "null"); } catch (e) { return null; } })();
+function restoreNav() {
+  const n = NAV_AT_START;
+  if (!n || !n.s || n.s === "home" || !state) return;
+  const s = NAV_PARENT[n.s] || n.s;
+  navStack = (n.st || []).filter((x) => x !== s && !NAV_PARENT[x]);
+  if (!navStack.length || navStack[0] !== "home") navStack.unshift("home");
+  current = "home"; go(s, true);
 }
 
 // Écouteurs posés UNE seule fois sur des éléments persistants (délégation) : pas d'empilement.

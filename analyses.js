@@ -21,7 +21,8 @@ function lineChart(series, years) {
 let anaTab = "evolution";
 // Deux familles : ce que tu possèdes (patrimoine) / tes investissements en bourse (ETF & actions).
 const ANA_GROUPS = [["Mon patrimoine", [["evolution", "Évolution"], ["patrimoine", "Projection"]]],
-                    ["ETF & actions", [["portefeuille", "Portefeuille"], ["explorer", "Explorer"]]]];
+                    ["ETF & actions", [["portefeuille", "Portefeuille"], ["explorer", "Explorer"]]],
+                    ["Mon budget", [["budget", "Où va mon argent"]]]];
 
 // Épargne mensuelle lissée : moyenne (revenus − dépenses) des 12 dernières clôtures.
 // Un seul mois (bonus, gros achat, déficit) ne doit pas fausser une projection sur 10 ans.
@@ -42,7 +43,7 @@ function serie(years, rate, mensuel) {
 function renderAnalyses() {
   setTitle("Analyses"); setBottomBar("");
   if (!state) { $("#screen").innerHTML = '<div class="card"><p class="muted">Importe d\'abord tes données.</p></div>'; return; }
-  const body = anaTab === "evolution" ? tabEvolution() : anaTab === "portefeuille" ? tabPortefeuille() : anaTab === "explorer" ? renderExplorerTab() : tabPatrimoine();
+  const body = anaTab === "budget" ? tabBudget() : anaTab === "evolution" ? tabEvolution() : anaTab === "portefeuille" ? tabPortefeuille() : anaTab === "explorer" ? renderExplorerTab() : tabPatrimoine();
   $("#screen").innerHTML = `<div class="ana-eye">${settings.hideAmounts ? "Montants masqués" : ""}${eyeBtn()}</div><div class="tab-groups">${ANA_GROUPS.map(([g, tabs]) => `<div class="tab-group ${tabs.some(([k]) => k === anaTab) ? "active" : ""}">
       <div class="tg-label">${g}</div><div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${k === anaTab ? "on" : ""}" data-anatab="${k}">${l}</button>`).join("")}</div></div>`).join("")}</div>${body}`;
 }
@@ -109,12 +110,45 @@ function tabEvolution() {
     <div class="card"><p class="muted small">Chaque barre = patrimoine net de fin de mois moins celui du mois précédent : ton épargne du mois plus (ou moins) l'évolution des marchés et de tes autres actifs. Les 12 dernières clôtures sont affichées, l'année figure sous le premier mois de chaque année.</p></div>`;
 }
 
+/* ---------- onglet Budget : répartition des dépenses par poste ---------- */
+let budMonth = ""; // "" = budget actuel, sinon "AAAA-MM" d'une clôture qui a gardé le détail
+function tabBudget() {
+  const withDetail = historiqueMonthsSorted().filter((k) => state.historique[k].budget).slice(-6).reverse();
+  const h = budMonth && state.historique[budMonth] && state.historique[budMonth].budget;
+  const src = h ? h : { fixes: (state.budget.fixes || []).map((x) => [x.nom, Number(x.montant) || 0]), variables: (state.budget.variables || []).map((x) => [x.nom, Number(x.montant) || 0]), projets: (state.budget.projets || []).map((x) => [x.nom, Number(x.montant) || 0]) };
+  const rev = h ? Number(state.historique[budMonth].revenus) || 0 : budgetRevenusTotal();
+  const rows = [].concat(src.fixes.map(([n, v]) => ({ n, v, k: "fix" })), src.variables.map(([n, v]) => ({ n, v, k: "var" })), (src.projets || []).map(([n, v]) => ({ n, v, k: "proj" })))
+    .filter((r) => r.v > 0).sort((a, b) => b.v - a.v);
+  const tot = (k) => rows.filter((r) => r.k === k).reduce((s, r) => s + r.v, 0);
+  const dep = rows.reduce((s, r) => s + r.v, 0), max = rows.length ? rows[0].v : 1, ep = rev - dep;
+  const pct = (v) => rev > 0 ? Math.round(v / rev * 100) + " %" : "";
+  const chips = `<div class="chips"><button class="chip ${!budMonth ? "on" : ""}" data-budm="">Budget actuel</button>${withDetail.map((k) => `<button class="chip ${k === budMonth ? "on" : ""}" data-budm="${k}">${esc(monthLabel(k))}</button>`).join("")}</div>`;
+  if (!rows.length) return chips + `<div class="card"><p class="muted">Aucune dépense saisie. Elles se remplissent lors de la clôture du mois (charges fixes et dépenses variables).</p></div>`;
+  return `${chips}
+    <div class="card bud-sum">
+      <div class="bud-stack">${[["fix", tot("fix")], ["var", tot("var")], ["proj", tot("proj")], ["ep", Math.max(0, ep)]].filter(([, v]) => v > 0)
+        .map(([k, v]) => `<span class="bs-${k}" style="flex:${v}"></span>`).join("")}</div>
+      <div class="bud-legend">
+        <span><i class="bs-fix"></i>Fixes <strong>${money(tot("fix"))}</strong> ${pct(tot("fix"))}</span>
+        <span><i class="bs-var"></i>Variables <strong>${money(tot("var"))}</strong> ${pct(tot("var"))}</span>
+        ${tot("proj") ? `<span><i class="bs-proj"></i>Projets <strong>${money(tot("proj"))}</strong> ${pct(tot("proj"))}</span>` : ""}
+        <span><i class="bs-ep"></i>${ep >= 0 ? "Épargne" : "Déficit"} <strong class="${ep >= 0 ? "pos" : "neg"}">${money(ep)}</strong> ${pct(Math.abs(ep))}</span>
+      </div>
+      <p class="muted small">Revenus ${h ? "de " + esc(monthLabel(budMonth)) : "du budget"} : ${money(rev)} / mois.</p>
+    </div>
+    <div class="section-title">Par poste</div>
+    <div class="card bud-bars">${rows.map((r) => `<div class="bb-row"><div class="bb-head"><span>${esc(r.n)}</span><span><strong>${money(r.v)}</strong> <span class="r-sub">${pct(r.v)}</span></span></div>
+      <div class="bb-track"><span class="bs-${r.k}" style="width:${Math.max(2, r.v / max * 100)}%"></span></div></div>`).join("")}</div>
+    <p class="muted small">${h ? "Détail enregistré lors de la clôture." : "Budget actuel (montants de ta dernière clôture, mis à jour à chaque clôture)."} Le détail par mois est gardé pour les clôtures faites à partir de cette version.</p>`;
+}
+
 /* ---------- onglet Portefeuille (prochaine version) ---------- */
 function tabPortefeuille() { return renderPortefeuilleTab(); }
 
 $("#screen").addEventListener("click", (e) => {
   if (current !== "analyses") return;
-  const t = e.target.closest("[data-proj],[data-anatab]"); if (!t) return;
-  if (t.dataset.anatab) anaTab = t.dataset.anatab; else projYears = Number(t.dataset.proj);
+  const t = e.target.closest("[data-proj],[data-anatab],[data-budm]"); if (!t) return;
+  if (t.dataset.budm !== undefined) budMonth = t.dataset.budm;
+  else if (t.dataset.anatab) anaTab = t.dataset.anatab; else projYears = Number(t.dataset.proj);
   renderAnalyses();
 });

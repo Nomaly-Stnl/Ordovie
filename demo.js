@@ -142,4 +142,4 @@ document.addEventListener("click", (e) => {
   alert("Indisponible en mode démo. Quitte d'abord la démo (bandeau en haut), puis sauvegarde ou importe tes vraies données.");
 }, true);
 
-if (current === "home") go("home");
+if (current === "home") { go("home"); if (typeof restoreNav === "function") restoreNav(); }

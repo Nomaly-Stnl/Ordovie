@@ -127,6 +127,17 @@ function provisionImpots() {
   const l = (state.budget.fixes || []).filter((x) => /imp[oô]t/i.test(x.nom || ""));
   return l.length ? { v: l.reduce((s, x) => s + (Number(x.montant) || 0), 0) * 12, noms: l.map((x) => x.nom).join(", ") } : null;
 }
+// Salaires nets lus sur les certificats de salaire transcrits (Documents → catégorie Revenus) de l'année.
+function parseMontant(s) { const m = String(s || "").replace(/['’\s]/g, "").replace(",", ".").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : NaN; }
+function certificatsSalaire(year) {
+  return (admin.documents || []).filter((d) => d.categorie === "Revenus" && !d.archived && d.transcription).map((d) => {
+    const t = d.transcription, txt = [d.nom, t.titre, t.type].join(" ").toLowerCase();
+    if (!/salaire|lohn/.test(txt) || !JSON.stringify(t).includes(String(year))) return null;
+    const net = (t.montants || []).find((m) => /net/i.test(m.libelle || "") && !/brut/i.test(m.libelle || ""));
+    const v = net ? parseMontant(net.montant) : NaN;
+    return v > 0 ? { d, v, qui: t.titulaire || "" } : null;
+  }).filter(Boolean);
+}
 function taxSim() { const { o } = imp(); o.sim = o.sim || {}; return o.sim; }
 function taxSimulation() {
   const S = taxSim(), p = state.params, year = Number(imp().y), tm = Number(p.tauxMarginal) || 0;
@@ -157,6 +168,8 @@ function taxSimulation() {
     <div class="card">
       <div class="edit-row"><span class="name">Tes revenus nets<br><span class="r-sub">auto : ${fmtCHF(me.v)} (${esc(me.src)})</span></span>${f("monRevenu", S.monRevenu, Math.round(me.v))}<span class="unit">CHF</span></div>
       <div class="edit-row"><span class="name">Revenus nets de ta conjointe</span>${f("conjoint", S.conjoint, "0")}<span class="unit">CHF</span></div>
+      ${certificatsSalaire(year).map((c) => `<div class="cert-row"><span class="r-sub">${ic("doc", 14)} ${esc(c.d.nom)}${c.qui ? " · " + esc(c.qui) : ""} : <strong>${fmtCHF(c.v)}</strong> net</span>
+        <span><button class="btn sm" data-simset="monRevenu" data-v="${c.v}">Pour moi</button><button class="btn sm" data-simset="conjoint" data-v="${c.v}">Conjoint·e</button></span></div>`).join("")}
       <div class="row"><div class="r-name">Revenus du foyer</div><div class="r-val">${fmtCHF(foyer)}</div></div>
       <div class="row"><div class="r-name">3a versé cette année</div><div class="r-val">${fmtCHF(v3a)}<div class="r-sub">${d3a ? (d3a > 0 ? "−" : "+") + fmtCHF(Math.abs(d3a * tm)) + " d'impôt vs l'année de référence" : "comme l'année de référence"}</div></div></div>
     </div>
@@ -175,6 +188,8 @@ $("#screen").addEventListener("change", (e) => {
   const v = e.target.value.trim(); taxSim()[e.target.dataset.sim] = v === "" ? "" : parseNum(v); saveAdmin(); renderImpots();
 });
 $("#screen").addEventListener("click", (e) => {
+  const ss = e.target.closest("[data-simset]");
+  if (ss && current === "impots") { taxSim()[ss.dataset.simset] = Number(ss.dataset.v); saveAdmin(); renderImpots(); return; }
   const g = e.target.closest("[data-taxign]");
   if (g && current === "impots") { e.preventDefault(); const { o } = imp(); (o.ignore = o.ignore || {})[g.dataset.taxign] = g.dataset.doc; saveAdmin(); renderImpots(); return; }
   const t = e.target.closest("[data-taxtab]"); if (!t || current !== "impots") return;

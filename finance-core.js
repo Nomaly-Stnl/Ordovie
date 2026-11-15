@@ -212,7 +212,10 @@ function allProjectIdsEverUsed(){
 function closeMonth(monthKey){
   state.historique[monthKey] = {
     cash: totalCash(), pilier3a: total3a(), etf: totalETF(), crypto: totalCrypto(), physique: totalPhysique(),
-    dettes: totalDettes(), projets: projetsSnapshot(), revenus: budgetRevenusTotal(), depenses: budgetDepensesTotal()
+    dettes: totalDettes(), projets: projetsSnapshot(), revenus: budgetRevenusTotal(), depenses: budgetDepensesTotal(),
+    // détail par ligne (Ordovie) : permet de revoir la répartition d'un mois passé dans Analyses
+    budget: { fixes: (state.budget.fixes||[]).map(x=>[x.nom, Number(x.montant)||0]), variables: (state.budget.variables||[]).map(x=>[x.nom, Number(x.montant)||0]),
+              projets: (state.budget.projets||[]).map(x=>[x.nom, Number(x.montant)||0]) }
   };
 }
 function deleteMonth(monthKey){ delete state.historique[monthKey]; }

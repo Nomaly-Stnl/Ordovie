@@ -133,6 +133,34 @@ async function transcribeDoc(doc) {
   return { json, truncated: r.stop === "max_tokens", usage: r.usage };
 }
 
+/* ---------- quand la lecture échoue ou reste pauvre : expliquer et proposer une alternative ---------- */
+function trErrorText(err) {
+  const m = String(err && err.message || err);
+  if (/sans JSON|JSON/i.test(m)) return "L'IA n'a pas réussi à lire le document.";
+  if (/413|too large|exceed|maximum/i.test(m)) return "Fichier trop lourd pour l'IA (PDF : max. ~32 Mo et 100 pages).";
+  if (/HTTP 4\d\d/.test(m) && !/401|403|429/.test(m)) return "Le document n'a pas pu être envoyé : " + m;
+  return m;
+}
+// Résultat pauvre : peu de champs utiles, ou l'IA signale elle-même une page illisible.
+function trWeak(t, kind) {
+  if (!t) return "Aucun résultat.";
+  if (/illisible|flou|floue|coupé|tronqué|partiel|unreadable|blurry/i.test(String(t.remarques || ""))) return "L'IA signale : " + t.remarques;
+  const keys = kind === "contrat" ? ["fournisseur", "numero", "echeance", "debut"] : ["titre", "emetteur", "titulaire", "dateEmission", "resume"];
+  const ok = keys.filter((k) => t[k]).length + ((t.couvertures || []).length || (t.montants || []).length ? 1 : 0);
+  return ok <= 1 ? "Très peu d'informations ont pu être lues." : "";
+}
+function trHelpHtml(msg, truncated) {
+  return `<div class="card tr-help"><div class="c-title">${truncated ? "Document trop long, lu en partie" : "Lecture incomplète"}</div>
+    ${msg ? `<p class="small">${esc(msg)}</p>` : ""}
+    <ul class="plain small">
+      ${truncated ? "<li><strong>Sépare-le</strong> : la police d'un côté, les conditions générales dans un autre document.</li>" : ""}
+      <li><strong>Le mieux : le PDF original</strong> (portail de l'assureur, e-banking, e-mail). L'IA lit alors le texte lui-même, sans erreur.</li>
+      <li>Pas de PDF ? <strong>Des captures d'écran</strong> de chaque page affichée en grand.</li>
+      <li>Une photo : <strong>à plat, bien éclairée, sans reflet ni ombre</strong>, page entière dans le cadre, une photo par page.</li>
+    </ul>
+    <p class="muted small">Supprime les pages ratées, ajoute les nouvelles, puis « Retranscrire ».</p></div>`;
+}
+
 /* ---------- nouveau contrat à partir de la police : l'IA remplit la fiche ---------- */
 // Retourne { champ: "lu" | "déduit" } pour signaler dans le formulaire l'origine de chaque valeur.
 function fillFromTranscription(c, t) {
@@ -169,13 +197,16 @@ async function importNewContract(files) {
     doc.transcription = r.json; doc.truncated = r.truncated; doc.transcribedAt = new Date().toISOString(); doc.model = aiModel();
     if (r.json.titre) doc.nom = r.json.titre;
     fillFromTranscription(draftC, r.json);
+    doc.trWarn = r.truncated ? "" : trWeak(r.json, "contrat");
     persistDocs();
-  } catch (err) { alert("Lecture impossible : " + err.message + "\nLes pages sont gardées : complète la fiche à la main."); }
+  } catch (err) { doc.trWarn = trErrorText(err); draftC.trFailed = true; persistDocs(); }
   newBusy = false; if (current === "contrat-edit") renderContratEdit();
 }
 function newImportHtml() {
   if (editIdx !== -1 && !(draftC && draftC._new)) return "";
   if (newBusy) return `<div class="card ai-card"><div class="c-title">Lecture de la police…</div><p class="muted small">L'IA lit le document et remplit la fiche (jusqu'à une minute).</p><div class="spinner"></div></div>`;
+  const d0 = draftC && (draftC.docs || [])[0];
+  if (draftC && draftC._new && d0 && (d0.trWarn || d0.truncated)) return (draftC.aiSrc ? `<div class="card ai-card"><div class="c-title">${ic("check")}Fiche pré-remplie en partie</div><p class="muted small">Vérifie les champs marqués <span class="src lu">lu</span> et <span class="src deduit">déduit</span>, complète le reste.</p></div>` : "") + trHelpHtml(d0.trWarn, d0.truncated);
   if (draftC && draftC.aiSrc) return `<div class="card ai-card"><div class="c-title">${ic("check")}Fiche pré-remplie</div>
       <p class="muted small">Vérifie les champs marqués <span class="src lu">lu</span> (sur la police) et <span class="src deduit">déduit</span> (règle usuelle)${draftC.aiNote ? " : " + esc(draftC.aiNote.replace(/\.\s*$/, "")) : ""}. Puis « Enregistrer ».</p></div>`;
   if (editIdx !== -1) return "";
@@ -201,6 +232,7 @@ function contratDocsHtml() {
         ${d.transcription ? `<div class="r-sub">✓ Transcrit le ${esc(new Date(d.transcribedAt).toLocaleDateString("fr-CH"))}
             · ${(d.transcription.articles || []).length} article(s) · ${(d.transcription.couvertures || []).length} couverture(s)
             ${d.truncated ? ' · <span class="neg">document long : transcription incomplète</span>' : ""}</div>
+            ${d.trWarn || d.truncated ? trHelpHtml(d.trWarn, d.truncated) : ""}
             <div class="btn-row"><button class="btn sm" data-docview="${di}">Voir la transcription</button><button class="btn sm" data-doctr="${di}">Retranscrire</button></div>`
           : docBusy === d.id ? `<p class="muted small">Transcription en cours… (jusqu'à une minute)</p>`
           : aiReady() ? `<div class="btn-row"><button class="btn primary sm" data-doctr="${di}">Transcrire avec Claude</button></div>`
@@ -220,8 +252,8 @@ async function fillThumbs() {
       const f = await getFile(fid).catch(() => null); if (!f) continue;
       const url = URL.createObjectURL(f.blob);
       el.insertAdjacentHTML("beforeend", f.type === "application/pdf"
-        ? `<a class="thumb pdf" href="${url}" target="_blank" rel="noopener">PDF</a>`
-        : `<a class="thumb" href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="page"></a>`);
+        ? `<a class="thumb pdf" href="${url}" target="_blank" rel="noopener">PDF ↗</a>`
+        : `<a class="thumb" href="${url}"><img src="${url}" alt="page"></a>`);
     }
   }
 }
@@ -319,8 +351,10 @@ $("#screen").addEventListener("click", async (e) => {
     try {
       const r = await transcribeDoc(d);
       d.transcription = r.json; d.truncated = r.truncated; d.transcribedAt = new Date().toISOString(); d.model = aiModel();
-      persistDocs(); docBusy = null; renderTranscription(Number(t.dataset.doctr)); current = "contrat-edit";
-    } catch (err) { docBusy = null; renderContratEdit(); alert("Transcription impossible : " + err.message); }
+      d.trWarn = r.truncated ? "" : trWeak(r.json, "contrat");
+      persistDocs(); docBusy = null;
+      if (d.trWarn || d.truncated) renderContratEdit(); else { renderTranscription(Number(t.dataset.doctr)); current = "contrat-edit"; }
+    } catch (err) { docBusy = null; d.trWarn = trErrorText(err); persistDocs(); renderContratEdit(); }
   } else if (t.dataset.docview !== undefined) { renderTranscription(Number(t.dataset.docview)); }
   else if (t.id === "btn-apply-tr") {
     const d = draftC.docs[Number(t.dataset.di)];

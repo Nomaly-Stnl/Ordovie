@@ -95,7 +95,7 @@ function renderAssistant() {
       : `Finances + ${(admin.contrats || []).length} contrat(s) · ${nDocs} document(s) transcrit(s) en contexte`}
       ${msgs.length ? ` · <button class="link-btn" data-chat="clear">effacer la conversation</button>` : ""}</div>
     <div class="chat" id="chat">
-      ${msgs.length ? msgs.map((m) => `<div class="msg ${m.role}">${m.role === "assistant" ? mdLite(m.content) : esc(m.content).replace(/\n/g, "<br>")}</div>`).join("")
+      ${msgs.length ? msgs.map((m, i) => `${msgs.length > 20 && i === msgs.length - 20 ? '<div class="chat-sep">L\'IA ne relit que les 20 derniers messages</div>' : ""}<div class="msg ${m.role}">${m.role === "assistant" ? mdLite(m.content) : esc(m.content).replace(/\n/g, "<br>")}</div>`).join("")
         : `<div class="msg hint">Exemples : « Comment répartir mon surplus ce mois-ci ? » · « Combien verser encore sur mon 3a avant la fin de l'année ? » · « Où puis-je réduire mes dépenses ? » · « Un incendie dans mon salon, suis-je couvert ? » · « Quand dois-je résilier ma LAMal ? »</div>`}
       ${chatBusy ? '<div class="msg assistant typing">…</div>' : ""}
     </div>
@@ -104,7 +104,9 @@ function renderAssistant() {
       <button class="btn primary" type="submit" ${chatBusy ? "disabled" : ""}>Envoyer</button>
     </form>
     <p class="muted small">${scoped ? "Ce contrat et ses documents sont envoyés" : "Tes finances, contrats et documents transcrits sont envoyés"} à Claude avec chaque question. Coût : quelques centimes par question.</p>`;
-  const c = document.getElementById("chat"); const last = c.lastElementChild; if (last && last.scrollIntoView) last.scrollIntoView({ block: "end" });
+  // Arriver directement en bas de la conversation (le dernier message et la zone de saisie).
+  const toBottom = () => window.scrollTo(0, document.documentElement.scrollHeight);
+  toBottom(); requestAnimationFrame(toBottom); setTimeout(toBottom, 120);
 }
 
 async function sendChat(text) {
@@ -113,7 +115,9 @@ async function sendChat(text) {
   chatBusy = true; saveAdmin(); renderAssistant();
   const convo = list.filter((m) => (m.scope || null) === scope && !m.error).slice(-20).map((m) => ({ role: m.role, content: m.content }));
   try {
-    const r = await callClaude({ max_tokens: 4000, system: systemPrompt(), messages: convo });
+    // cache_control : le contexte (finances, contrats, documents) est mis en cache quelques minutes chez Anthropic ;
+    // les questions suivantes le relisent ~10× moins cher.
+    const r = await callClaude({ max_tokens: 4000, system: [{ type: "text", text: systemPrompt(), cache_control: { type: "ephemeral" } }], messages: convo });
     list.push({ role: "assistant", content: r.text || "(réponse vide)", scope, at: new Date().toISOString() });
   } catch (err) {
     list.push({ role: "assistant", content: "Erreur : " + err.message, scope, at: new Date().toISOString(), error: true });
