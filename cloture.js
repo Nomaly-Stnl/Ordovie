@@ -270,6 +270,9 @@ function pageRecap() {
       <div class="row"><div class="r-name">Dépenses du mois</div><div class="r-val">${fmtCHF(onDraft(budgetDepensesTotal))}</div></div>
       <div class="row"><div class="r-name">Surplus</div><div class="r-val ${onDraft(budgetSurplus) >= 0 ? "pos" : "neg"}">${fmtCHF(onDraft(budgetSurplus))}</div></div>
     </div>
+    ${(() => { const inv = investiDuMois(), lab = inv.total >= 0 ? "Investi ce mois" : "Retiré des placements ce mois";
+      return `<div class="card invest-line"><div class="li-head"><span>${lab}</span><strong>${fmtCHF(Math.abs(inv.total))}</strong></div>
+        <p class="muted small">${inv.detail.length ? inv.detail.map(([n, v]) => esc(n) + " " + fmtCHF(v)).join(" · ") : "Aucun achat ni vente saisi. Tu as investi ce mois ? Reviens aux étapes ETF / Crypto (« + Achat »)."}</p></div>`; })()}
     ${nA || nV ? `<p class="muted small">${nA} achat(s) et ${nV} vente(s) seront ajoutés au journal.</p>` : ""}
     ${exist ? `<p class="warn">Remplace la clôture existante de ${esc(monthLabel(wz.month))} (${fmtCHF(historyTotal(exist))}).</p>` : ""}`;
 }
@@ -304,6 +307,19 @@ function wzGo(dir) { wz.ui = {}; wz.i = Math.max(0, Math.min(wz.steps.length - 1
 function newVal(name) { const el = document.querySelector(`[data-wzt="__new.${name}"],[data-wz="__new.${name}"]`); return el ? String(el.value).trim() : ""; }
 function addPosition(obj) { wz.draft.positions.push(Object.assign({ prixActuel: 0, valeurManuelle: 0, achats: [], ventes: [], fraisTER: 0, ticker: "" }, obj)); }
 
+// Argent investi ce mois = achats saisis dans CETTE clôture − ventes (ETF, actions, crypto).
+// Ce n'est pas une dépense : l'argent passe des comptes aux placements. Affiché à part dans « Où va mon argent ».
+function investiDuMois() {
+  const detail = [];
+  wz.draft.positions.forEach((p) => {
+    const o = wz.origLens[p.id] || { a: 0, v: 0 };
+    const a = (p.achats || []).slice(o.a).filter((x) => parseNum(x.quantite) > 0).reduce((s, x) => s + achatCoutUnitaire(p, x), 0);
+    const v = (p.ventes || []).slice(o.v).filter((x) => parseNum(x.quantite) > 0).reduce((s, x) => s + venteMontantUnitaire(p, x), 0);
+    if (Math.abs(a - v) >= 0.5) detail.push([p.nom, Math.round((a - v) * 100) / 100]);
+  });
+  return { total: Math.round(detail.reduce((s, [, x]) => s + x, 0) * 100) / 100, detail };
+}
+
 function wzValidate() {
   const exist = state.historique[wz.month];
   if (exist && !confirm(monthLabel(wz.month) + " est déjà clôturé (" + fmtCHF(historyTotal(exist)) + "). Remplacer ?")) return;
@@ -314,8 +330,10 @@ function wzValidate() {
   });
   (wz.draft.dettes || []).forEach((x) => { delete x._touched; });
   (wz.draft.objectifs || []).forEach((o) => { if (Array.isArray(o.versements)) o.versements = o.versements.filter((v) => parseNum(v.montant) !== 0); });
+  const inv = investiDuMois();
   state = wz.draft;
   closeMonth(wz.month);
+  state.historique[wz.month].investi = inv;
   saveData();
   const label = monthLabel(wz.month);
   wz = null;

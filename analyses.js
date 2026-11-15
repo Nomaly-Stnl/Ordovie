@@ -117,24 +117,28 @@ function tabBudget() {
   const h = budMonth && state.historique[budMonth] && state.historique[budMonth].budget;
   const src = h ? h : { fixes: (state.budget.fixes || []).map((x) => [x.nom, Number(x.montant) || 0]), variables: (state.budget.variables || []).map((x) => [x.nom, Number(x.montant) || 0]), projets: (state.budget.projets || []).map((x) => [x.nom, Number(x.montant) || 0]) };
   const rev = h ? Number(state.historique[budMonth].revenus) || 0 : budgetRevenusTotal();
+  // Investi : achats − ventes saisis à la clôture du mois choisi (budget actuel = dernière clôture).
+  const hk = h ? budMonth : lastHistoryMonth(), invObj = hk && state.historique[hk] && state.historique[hk].investi;
+  const inv = invObj ? Number(invObj.total) || 0 : 0;
   const rows = [].concat(src.fixes.map(([n, v]) => ({ n, v, k: "fix" })), src.variables.map(([n, v]) => ({ n, v, k: "var" })), (src.projets || []).map(([n, v]) => ({ n, v, k: "proj" })))
     .filter((r) => r.v > 0).sort((a, b) => b.v - a.v);
   const tot = (k) => rows.filter((r) => r.k === k).reduce((s, r) => s + r.v, 0);
-  const dep = rows.reduce((s, r) => s + r.v, 0), max = rows.length ? rows[0].v : 1, ep = rev - dep;
+  const dep = rows.reduce((s, r) => s + r.v, 0), max = rows.length ? rows[0].v : 1, ep = rev - dep - Math.max(0, inv);
   const pct = (v) => rev > 0 ? Math.round(v / rev * 100) + " %" : "";
   const chips = `<div class="chips"><button class="chip ${!budMonth ? "on" : ""}" data-budm="">Budget actuel</button>${withDetail.map((k) => `<button class="chip ${k === budMonth ? "on" : ""}" data-budm="${k}">${esc(monthLabel(k))}</button>`).join("")}</div>`;
   if (!rows.length) return chips + `<div class="card"><p class="muted">Aucune dépense saisie. Elles se remplissent lors de la clôture du mois (charges fixes et dépenses variables).</p></div>`;
   return `${chips}
     <div class="card bud-sum">
-      <div class="bud-stack">${[["fix", tot("fix")], ["var", tot("var")], ["proj", tot("proj")], ["ep", Math.max(0, ep)]].filter(([, v]) => v > 0)
+      <div class="bud-stack">${[["fix", tot("fix")], ["var", tot("var")], ["proj", tot("proj")], ["inv", Math.max(0, inv)], ["ep", Math.max(0, ep)]].filter(([, v]) => v > 0)
         .map(([k, v]) => `<span class="bs-${k}" style="flex:${v}"></span>`).join("")}</div>
       <div class="bud-legend">
         <span><i class="bs-fix"></i>Fixes <strong>${money(tot("fix"))}</strong> ${pct(tot("fix"))}</span>
         <span><i class="bs-var"></i>Variables <strong>${money(tot("var"))}</strong> ${pct(tot("var"))}</span>
         ${tot("proj") ? `<span><i class="bs-proj"></i>Projets <strong>${money(tot("proj"))}</strong> ${pct(tot("proj"))}</span>` : ""}
-        <span><i class="bs-ep"></i>${ep >= 0 ? "Épargne" : "Déficit"} <strong class="${ep >= 0 ? "pos" : "neg"}">${money(ep)}</strong> ${pct(Math.abs(ep))}</span>
+        ${inv > 0 ? `<span><i class="bs-inv"></i>Investi <strong>${money(inv)}</strong> ${pct(inv)}</span>` : ""}
+        <span><i class="bs-ep"></i>${ep >= 0 ? (inv > 0 ? "Épargne en cash" : "Épargne") : "Pris sur tes réserves"} <strong class="${ep >= 0 ? "pos" : "neg"}">${money(ep)}</strong> ${pct(Math.abs(ep))}</span>
       </div>
-      <p class="muted small">Revenus ${h ? "de " + esc(monthLabel(budMonth)) : "du budget"} : ${money(rev)} / mois.</p>
+      <p class="muted small">Revenus ${h ? "de " + esc(monthLabel(budMonth)) : "du budget"} : ${money(rev)} / mois.${invObj && invObj.detail && invObj.detail.length ? `<br>Investi${h ? "" : " (clôture de " + esc(monthLabel(hk)) + ")"} : ${invObj.detail.map(([n, v]) => esc(n) + " " + money(v)).join(" · ")}` : ""}</p>
     </div>
     <div class="section-title">Par poste</div>
     <div class="card bud-bars">${rows.map((r) => `<div class="bb-row"><div class="bb-head"><span>${esc(r.n)}</span><span><strong>${money(r.v)}</strong> <span class="r-sub">${pct(r.v)}</span></span></div>

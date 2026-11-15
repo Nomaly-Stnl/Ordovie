@@ -410,3 +410,6 @@ img{max-width:100%;}
 .viewer-scroll img{width:100%;max-width:900px;height:auto;border-radius:6px;}
 .viewer-scroll img.zoom{width:220%;max-width:none;}
 body.viewer-on{overflow:hidden;}
+.bs-inv{background:#c98bdb;}
+.invest-line{margin-top:12px;}
+.invest-line .li-head strong{font-variant-numeric:tabular-nums;}
