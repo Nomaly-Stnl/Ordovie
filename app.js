@@ -2,7 +2,7 @@
 // Le moteur de calcul vient de finance-core.js (copie conforme de Gestion Finances v20).
 "use strict";
 
-const APP_VERSION = "0.35.0"; // garder aligné avec VERSION dans sw.js
+const APP_VERSION = "0.35.1"; // garder aligné avec VERSION dans sw.js
 const SETTINGS_KEY = "ordovie_settings_v1";
 const DATA_KEY = "ordovie_finances_v1";
 
@@ -468,8 +468,16 @@ function restoreNav() {
 
 // Écouteurs posés UNE seule fois sur des éléments persistants (délégation) : pas d'empilement.
 $("#btn-home").addEventListener("click", () => go("home"));
-history.replaceState({ ordovie: "base" }, "");
-history.pushState({ ordovie: "garde" }, "");
+// Chrome Android ignore (« saute ») une entrée d'historique ajoutée sans geste de l'utilisateur : une garde
+// recréée pendant un « retour » peut donc être sautée au retour suivant → sortie de l'app. On garde donc une
+// RÉSERVE de gardes, recréées à chaque toucher (geste réel = entrées non sautées) : plusieurs retours
+// d'affilée restent dans l'app.
+const GUARDS = 4;
+const guardDepth = () => (history.state && history.state.n) || 0;
+function topUpGuards() { let d = guardDepth(); while (d < GUARDS) { d++; history.pushState({ ordovie: "garde", n: d }, ""); } }
+history.replaceState({ ordovie: "base", n: 0 }, "");
+history.pushState({ ordovie: "garde", n: 1 }, "");
+document.addEventListener("click", topUpGuards, true);
 function goBack() {
   if (backHandler) { const h = backHandler; backHandler = null; h(); return; }
   if (current === "cloture" && wz && wz.i > 0) { wzGo(-1); return; } // clôture : étape précédente
@@ -479,9 +487,10 @@ function goBack() {
   if (current === before && before !== target) navStack.push(target); // retour refusé (ex. clôture conservée)
 }
 window.addEventListener("popstate", () => {
-  if (document.body.classList.contains("is-locked")) { history.pushState({ ordovie: "garde" }, ""); return; }
-  if (current === "home" && !backHandler) { history.back(); return; } // accueil : on quitte vraiment l'app
-  history.pushState({ ordovie: "garde" }, ""); // on réarme la garde avant de naviguer
+  const d = guardDepth();
+  if (document.body.classList.contains("is-locked")) { if (!d) history.pushState({ ordovie: "garde", n: 1 }, ""); return; }
+  if (current === "home" && !backHandler) { if (d > 0) history.go(-d); return; } // accueil : on vide la réserve → le retour suivant quitte l'app
+  if (!d) history.pushState({ ordovie: "garde", n: 1 }, ""); // réserve épuisée : dernière garde (au mieux)
   goBack();
 });
 $("#btn-settings").addEventListener("click", () => go("settings"));
